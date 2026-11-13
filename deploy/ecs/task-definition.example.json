@@ -1,0 +1,107 @@
+{
+  "family": "REPLACE_DASHBOARD_FAMILY",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "256",
+  "memory": "512",
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "taskRoleArn": "REPLACE_DASHBOARD_TASK_ROLE_ARN",
+  "executionRoleArn": "REPLACE_DASHBOARD_EXECUTION_ROLE_ARN",
+  "containerDefinitions": [
+    {
+      "name": "dashboard",
+      "image": "REPLACE_VERIFIED_IMAGE_DIGEST",
+      "essential": true,
+      "user": "node",
+      "linuxParameters": {
+        "initProcessEnabled": true
+      },
+      "stopTimeout": 30,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp",
+          "name": "http",
+          "appProtocol": "http"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        },
+        {
+          "name": "HOSTNAME",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-northeast-2"
+        },
+        {
+          "name": "DATA_ADAPTER",
+          "value": "engine"
+        },
+        {
+          "name": "ENGINE_API_BASE_URL",
+          "value": "https://REPLACE_ENGINE_FQDN"
+        },
+        {
+          "name": "ENGINE_API_ALLOWED_HOST",
+          "value": "REPLACE_ENGINE_FQDN"
+        },
+        {
+          "name": "ENGINE_PRIVATE_DNS_SUFFIX",
+          "value": ""
+        },
+        {
+          "name": "ENGINE_API_TRANSPORT",
+          "value": "tls"
+        },
+        {
+          "name": "ENGINE_READ_API_TOKEN_SECRET_ARN",
+          "value": "REPLACE_READ_SECRET_ARN"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DASHBOARD_USERNAME",
+          "valueFrom": "REPLACE_AUTH_SECRET_ARN:username::"
+        },
+        {
+          "name": "DASHBOARD_PASSWORD_HASH",
+          "valueFrom": "REPLACE_AUTH_SECRET_ARN:password_hash::"
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/healthz',{signal:AbortSignal.timeout(2000)}).then(async r=>{const b=await r.json();if(!r.ok||b.status!=='ok'||b.service!=='tqqq.dalae37.com')process.exit(1)}).catch(()=>process.exit(1))"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "REPLACE_LOG_GROUP",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "dashboard"
+        }
+      }
+    }
+  ]
+}

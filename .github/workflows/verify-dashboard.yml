@@ -1,0 +1,43 @@
+name: tqqq.dalae37.com - Dashboard Verification
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify dashboard and access boundaries
+    runs-on: ubuntu-24.04
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@101b3474143230c3562bd21f0b3c3f8254784571 # verified upstream commit
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v26.13.0"
+          test "$(npm --version)" = "11.20.0"
+      - name: Install tested dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify contracts and types
+        run: |
+          npx next typegen
+          npm run typecheck
+          npm test
+      - name: Verify production build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify browser behavior and private access
+        run: npm run test:e2e
+      - name: Verify client bundle contains no server secrets
+        run: node scripts/verify-client-bundle.mjs

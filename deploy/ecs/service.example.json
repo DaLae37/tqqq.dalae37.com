@@ -1,0 +1,33 @@
+{
+  "cluster": "REPLACE_ECS_CLUSTER",
+  "serviceName": "REPLACE_DASHBOARD_SERVICE",
+  "taskDefinition": "REPLACE_DASHBOARD_TASK_REVISION",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "platformVersion": "1.4.0",
+  "enableExecuteCommand": false,
+  "deploymentConfiguration": {
+    "minimumHealthyPercent": 100,
+    "maximumPercent": 200,
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    }
+  },
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "assignPublicIp": "ENABLED",
+      "subnets": [
+        "REPLACE_PUBLIC_SUBNET_ID"
+      ],
+      "securityGroups": [
+        "REPLACE_DASHBOARD_SG_ID"
+      ]
+    }
+  },
+  "serviceRegistries": [
+    {
+      "registryArn": "REPLACE_DASHBOARD_DISCOVERY_ARN"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+services:
+  # Optional local/portable fallback only. Production uses deploy/ecs templates.
+  next-tqqq-dalae37-com:
+    # Supply a verified release tag or digest. No implicit latest in production.
+    image: ${DASHBOARD_IMAGE:?Set a verified GHCR tag or digest}
+    pull_policy: always
+    restart: unless-stopped
+    env_file:
+      - path: ./dashboard.env
+        required: true
+    environment:
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    expose:
+      - "3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "2", "-O", "/dev/null", "http://127.0.0.1:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - dashboard
+
+networks:
+  dashboard:
+    name: ${DASHBOARD_NETWORK:?Set an external Docker network}
+    external: true

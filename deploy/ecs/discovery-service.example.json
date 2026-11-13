@@ -1,0 +1,17 @@
+{
+  "Name": "REPLACE_DISCOVERY_SERVICE_NAME",
+  "NamespaceId": "REPLACE_NAMESPACE_ID",
+  "DnsConfig": {
+    "NamespaceId": "REPLACE_NAMESPACE_ID",
+    "RoutingPolicy": "MULTIVALUE",
+    "DnsRecords": [
+      {
+        "Type": "A",
+        "TTL": 10
+      }
+    ]
+  },
+  "HealthCheckCustomConfig": {
+    "FailureThreshold": 1
+  }
+}
