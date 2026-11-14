@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verify dashboard and access boundaries
+    name: Verify public dashboard and server boundaries
     runs-on: ubuntu-24.04
     env:
       NEXT_TELEMETRY_DISABLED: "1"
@@ -37,7 +37,7 @@ jobs:
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Verify browser behavior and private access
+      - name: Verify browser behavior and public read-only access
         run: npm run test:e2e
       - name: Verify client bundle contains no server secrets
         run: node scripts/verify-client-bundle.mjs

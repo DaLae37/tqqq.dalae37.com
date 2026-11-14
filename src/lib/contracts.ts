@@ -105,7 +105,7 @@ export type Trade = z.infer<typeof tradeSchema>;
 export type OrderEvent = z.infer<typeof eventSchema>;
 export type StrategyVersion = z.infer<typeof versionSchema>;
 export type DataResult<T> = {
-  data: T | null; source: "mock" | "engine" | "disabled"; fetchedAt: string;
+  data: T | null; source: "engine" | "disabled"; fetchedAt: string;
   error: "unavailable" | "unauthorized" | "invalid_response" | "not_configured" | null;
 };
 export type Overview = {

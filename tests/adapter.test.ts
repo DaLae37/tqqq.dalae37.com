@@ -1,17 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { engineBaseUrl, readResource } from "../src/lib/server/engine.ts";
-import { mockResource } from "../src/lib/mock.ts";
-import { marketData } from "../src/lib/server/market.ts";
+import { mockResource } from "./fixtures.ts";
 
-test("disabled adapter never fetches and demo never uses engine credentials", async () => {
+test("disabled and removed mock adapters never fetch or produce synthetic account data", async () => {
   process.env.DATA_ADAPTER = "disabled";
   const original = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error("unexpected external call"); };
   try {
-    assert.equal((await readResource("status", false)).error, "not_configured");
-    assert.equal((await readResource("status", true)).source, "mock");
-    assert.equal((await marketData({ symbol: "QQQ", interval: "day", range: "1Y" }, false)).bars.length, 0);
+    assert.equal((await readResource("status")).error, "not_configured");
+    process.env.DATA_ADAPTER = "mock";
+    const result = await readResource("status");
+    assert.equal(result.source, "disabled");
+    assert.equal(result.data, null);
   } finally { globalThis.fetch = original; }
 });
 test("fixed engine origin rejects insecure production URL and userinfo", () => {
@@ -35,7 +36,7 @@ test("upstream request is GET only, no-store, fixed path and no redirects", asyn
     assert.equal((init?.headers as Record<string, string>).Authorization, `Bearer ${process.env.ENGINE_READ_API_TOKEN}`);
     return Response.json(mockResource("status"));
   };
-  try { assert.equal((await readResource("status", false)).data?.mode, "pause"); }
+  try { assert.equal((await readResource("status")).data?.mode, "pause"); }
   finally { globalThis.fetch = original; }
 });
 test("failures return no previous healthy data and never fall back to mock", async () => {
@@ -43,17 +44,17 @@ test("failures return no previous healthy data and never fall back to mock", asy
   try {
     for (const status of [401, 503]) {
       globalThis.fetch = async () => Response.json({ error: "private upstream detail" }, { status });
-      const result = await readResource("status", false);
+      const result = await readResource("status");
       assert.equal(result.data, null); assert.equal(result.source, "engine");
       assert.equal(result.error, status === 401 ? "unauthorized" : "unavailable");
       assert.equal(JSON.stringify(result).includes("private upstream detail"), false);
     }
     globalThis.fetch = async () => Response.json({ ok: false }, { status: 503 });
-    assert.equal((await readResource("ready", false)).data?.ok, false);
+    assert.equal((await readResource("ready")).data?.ok, false);
     globalThis.fetch = async () => Response.json({ wrong: "schema" });
-    assert.equal((await readResource("status", false)).error, "invalid_response");
+    assert.equal((await readResource("status")).error, "invalid_response");
     globalThis.fetch = async () => { throw new Error("private connection detail"); };
-    const disconnected = await readResource("status", false);
+    const disconnected = await readResource("status");
     assert.equal(disconnected.error, "unavailable");
     assert.equal(disconnected.data, null);
     assert.equal(JSON.stringify(disconnected).includes("private connection detail"), false);

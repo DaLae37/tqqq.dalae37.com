@@ -17,7 +17,7 @@
         "secretsmanager:GetSecretValue"
       ],
       "Resource": [
-        "REPLACE_AUTH_SECRET_ARN"
+        "REPLACE_CLOUDFLARE_TUNNEL_TOKEN_SECRET_ARN"
       ]
     }
   ]

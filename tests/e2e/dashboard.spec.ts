@@ -1,113 +1,86 @@
 import { test, expect } from "@playwright/test";
 
-test("health is public while all private data and RSC access require authentication", async ({ request }) => {
-  expect((await request.get("/healthz")).status()).toBe(200);
-  for (const path of ["/", "/strategy", "/market", "/trades", "/portfolio", "/engine", "/dashboard", "/dashboard/portfolio", "/api/dashboard/status", "/api/dashboard/trades", "/api/dashboard/market?symbol=QQQ&interval=day&range=1Y"]) {
+// The embed is isolated from third-party availability in automated UI checks.
+const widgetScript = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+test.beforeEach(async ({ page }) => {
+  await page.route(widgetScript, (route) => route.fulfill({ contentType: "application/javascript", body: `(() => { const script = document.currentScript; const frame = document.createElement("iframe"); frame.src = "https://www.tradingview-widget.com/embed-widget/advanced-chart/?fixture=1"; frame.style.cssText = "width:100%;height:100%;border:0"; script.parentElement.querySelector(".tradingview-widget-container__widget").append(frame); })();` }));
+  await page.route("https://www.tradingview-widget.com/**", (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>TradingView test fixture</title><p>Isolated widget fixture</p>" }));
+});
+
+test("all pages and RSC are public, missing data stays empty and demo routes are removed", async ({ request }) => {
+  for (const path of ["/", "/strategy", "/market", "/trades", "/portfolio", "/engine", "/dashboard", "/healthz"]) {
     const response = await request.get(path);
-    expect(response.status()).toBe(401); expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["www-authenticate"]).toBeUndefined();
+    if (path !== "/healthz") expect(response.headers()["cache-control"]).toContain("no-store");
     expect(await response.text()).not.toContain("8023.76");
   }
-  for (const path of ["/", "/strategy", "/market", "/trades/order", "/portfolio", "/engine", "/dashboard"]) expect((await request.get(path, { headers: { RSC: "1" } })).status()).toBe(401);
+  for (const path of ["/", "/strategy", "/market", "/trades", "/portfolio", "/engine", "/dashboard"]) expect((await request.get(path, { headers: { RSC: "1" } })).status()).toBe(200);
+  for (const path of ["/demo", "/demo/market", "/demo/trades", "/api/demo/status", "/api/demo/market", "/api/dashboard/market"]) expect((await request.get(path)).status()).toBe(404);
+  const response = await request.get("/api/dashboard/status");
+  expect(response.status()).toBe(503);
+  expect(await response.json()).toMatchObject({ source: "disabled", data: null, error: "not_configured" });
 });
-test("public demo and private mock remain visibly labeled", async ({ page, request }) => {
-  await page.goto("/demo"); await expect(page.getByText("MOCK / 디자인 초안")).toBeVisible();
-  await expect(page.locator(".recharts-line").first()).toBeVisible();
-  const authorization = `Basic ${Buffer.from(`test-reader:${process.env.E2E_PASSWORD}`).toString("base64")}`;
-  const response = await request.get("/api/dashboard/status", { headers: { authorization } });
-  expect(response.status()).toBe(200); expect((await response.json()).source).toBe("mock");
-  expect(await response.text()).not.toContain("synthetic-e2e-engine-secret");
-});
-test("chart switches symbol, interval and timezone", async ({ page }) => {
-  await page.goto("/demo/market");
-  await expect(page.locator(".recharts-line").first()).toBeVisible();
+
+test("official widget switches symbols and follows the site theme without engine data", async ({ page }) => {
+  await page.goto("/market");
+  await expect(page.getByTitle("QQQ 시세 — TradingView 공식 위젯")).toBeVisible();
+  const config = () => page.locator(`script[src="${widgetScript}"]`).textContent().then((value) => JSON.parse(value!));
+  expect(await config()).toMatchObject({ symbol: "NASDAQ:QQQ", interval: "D", allow_symbol_change: false });
   await page.getByRole("button", { name: "TQQQ", exact: true }).click();
-  await expect(page.locator(".chart-heading > strong")).toContainText("TQQQ");
-  await page.getByLabel("봉 간격").selectOption("minute");
-  await page.getByLabel("차트 시간대").selectOption("America/New_York");
-  await expect(page.locator(".chart-panel .data-source")).toContainText("ET");
+  await expect(page.getByTitle("TQQQ 시세 — TradingView 공식 위젯")).toBeVisible();
+  expect(await config()).toMatchObject({ symbol: "NASDAQ:TQQQ" });
+  await page.getByRole("button", { name: "SPYM", exact: true }).click();
+  await expect(page.getByTitle("SPYM 시세 — TradingView 공식 위젯")).toBeVisible();
+  expect(await config()).toMatchObject({ symbol: "AMEX:SPYM" });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect.poll(async () => (await config()).theme).toBe("dark");
+  expect(await page.locator(".chart-panel iframe").count()).toBe(1);
+  expect(JSON.stringify(await config())).not.toMatch(/token|orders|signals|fills|8023/);
+  await expect(page.locator("footer").getByRole("link", { name: "TradingView", exact: true })).toBeVisible();
 });
-test("table supports combined filters, sorting, pagination and order details", async ({ page }) => {
-  await page.goto("/demo/orders");
-  await expect(page.locator("tbody tr")).toHaveCount(10);
-  await page.getByRole("button", { name: "다음", exact: true }).click();
-  await expect(page.locator(".pagination")).toContainText("2페이지");
-  await page.getByRole("combobox", { name: "종목", exact: true }).selectOption("TQQQ");
-  await page.getByRole("combobox", { name: "매매", exact: true }).selectOption("SELL");
-  await page.getByRole("combobox", { name: "상태", exact: true }).selectOption("PARTIALLY_FILLED");
-  await page.getByRole("combobox", { name: "정렬", exact: true }).selectOption("asc");
-  await expect(page.locator("tbody tr")).toHaveCount(2);
-  await page.getByRole("link", { name: "상세 ↗", exact: true }).first().click();
-  await expect(page.getByRole("heading", { name: "확인된 개별 체결" })).toBeVisible();
-  await expect(page.getByText("ORDER_SUBMITTED", { exact: true })).toBeVisible();
-  await expect(page.getByText("FILL", { exact: true })).toBeVisible();
+
+test("blocked widget offers retry and a source link without synthetic prices", async ({ page }) => {
+  await page.route(widgetScript, (route) => route.abort());
+  await page.goto("/");
+  await expect(page.getByText("TradingView 위젯을 불러오지 못했습니다.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "다시 불러오기", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "QQQ chart", exact: true })).toHaveAttribute("href", "https://www.tradingview.com/symbols/NASDAQ-QQQ/");
+  await expect(page.locator(".chart-heading")).not.toContainText("$");
+  await expect(page.locator(".summary-card")).toHaveCount(3);
 });
-test("empty results, upstream market errors and missing data are explicit", async ({ page }) => {
-  await page.goto("/demo/orders"); await page.getByLabel("시작일", { exact: true }).fill("2099-01-01");
-  await expect(page.getByText("조건에 맞는 거래가 없습니다")).toBeVisible();
-  await page.route("**/api/demo/market?**", (route) => route.fulfill({ status: 503, json: { error: "unavailable" } }));
-  await page.goto("/demo"); await expect(page.getByText("시세 조회에 실패했습니다")).toBeVisible();
-  await page.unroute("**/api/demo/market?**");
-  await page.route("**/api/demo/market?**", (route) => route.fulfill({ json: { bars: [], source: "unavailable", observedAt: null, message: "연결 미설정" } }));
-  await page.reload(); await expect(page.getByText("시세 데이터가 없습니다")).toBeVisible();
+
+test("public BFF rejects arbitrary resources, URLs, invalid pagination and writes", async ({ request }) => {
+  for (const path of ["/api/dashboard/status?url=https://example.com", "/api/dashboard/orders?limit=201", "/api/dashboard/orders?offset=-1", "/api/dashboard/overview?url=https://example.com"]) expect((await request.get(path)).status()).toBe(400);
+  expect((await request.get("/api/dashboard/anything")).status()).toBe(404);
+  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) expect((await request.fetch("/api/dashboard/orders", { method })).status()).toBe(405);
 });
-test("BFF rejects arbitrary URLs, unrecognized symbols and write methods", async ({ request }) => {
-  expect((await request.get("/api/demo/market?symbol=EVIL&interval=day&range=1Y")).status()).toBe(400);
-  expect((await request.get("/api/demo/status?url=https://example.com")).status()).toBe(400);
-  expect((await request.get("/api/demo/anything")).status()).toBe(404);
-  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) expect((await request.fetch("/api/demo/orders", { method })).status()).toBe(405);
-});
+
 for (const width of [1440, 390]) {
-  test(`layout and chart render at ${width}px without page overflow`, async ({ page }) => {
+  test(`public navigation and Light/Dark layout at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto("/demo"); await expect(page.locator(".recharts-line").first()).toBeVisible();
+    await page.goto("/");
+    await expect(page.getByTitle("QQQ 시세 — TradingView 공식 위젯")).toBeVisible();
+    await expect(page).toHaveTitle("TQQQ 200d MA Strategy Dashboard");
+    await expect(page.locator(".summary-card")).toHaveCount(3);
+    await expect(page.locator(".chart-toolbar, .table-filters, .strategy-panel, .demo-banner")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    expect(errors).toEqual([]);
     await page.screenshot({ path: `test-results/dashboard-${width}.png`, fullPage: true });
     await page.emulateMedia({ colorScheme: "dark" });
+    await expect.poll(() => page.locator(`script[src="${widgetScript}"]`).textContent().then((value) => JSON.parse(value!).theme)).toBe("dark");
     await page.screenshot({ path: `test-results/dashboard-${width}-dark.png`, fullPage: true });
-    for (const path of ["/demo/strategy", "/demo/market", "/demo/trades", "/demo/portfolio", "/demo/engine"]) {
-      await page.goto(path); expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      if (path === "/demo/strategy") await page.screenshot({ path: `test-results/strategy-${width}-dark.png`, fullPage: true });
+    for (const [name, path] of [["Strategy", "/strategy"], ["Market", "/market"], ["Trades", "/trades"], ["Portfolio", "/portfolio"], ["Engine", "/engine"], ["Dashboard", "/"]]) {
+      const link = page.getByRole("navigation").getByRole("link", { name, exact: true });
+      await link.click(); await expect(page).toHaveURL(path); await expect(link).toHaveAttribute("aria-current", "page");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (name === "Strategy") {
+        await expect(page.getByRole("heading", { name: "QQQ SMA200으로 판단하고 TQQQ를 매매" })).toBeVisible();
+        await expect(page.getByText("확대 2회", { exact: true })).toBeVisible();
+        await expect(page.getByText("이후 +100%마다", { exact: true })).toBeVisible();
+        await page.screenshot({ path: `test-results/strategy-${width}-dark.png`, fullPage: true });
+      }
     }
+    expect(errors).toEqual([]);
   });
 }
-
-
-test("summary stays compact and each navigation opens its own page", async ({ page }) => {
-  await page.goto("/demo");
-  await expect(page).toHaveTitle("TQQQ 200d MA Strategy Dashboard");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("TQQQ 200d MA Strategy Dashboard");
-  await expect(page.locator(".summary-card")).toHaveCount(3);
-  await expect(page.locator("tbody tr")).toHaveCount(5);
-  await expect(page.locator(".chart-toolbar, .table-filters, .strategy-panel")).toHaveCount(0);
-  await expect(page.locator(".chart-panel .recharts-scatter")).toHaveCount(1);
-  for (const [name, path] of [["Strategy", "/demo/strategy"], ["Market", "/demo/market"], ["Trades", "/demo/trades"], ["Portfolio", "/demo/portfolio"], ["Engine", "/demo/engine"], ["Dashboard", "/demo"]]) {
-    const link = page.getByRole("navigation").getByRole("link", { name, exact: true });
-    await link.click();
-    await expect(page).toHaveURL(path);
-    await expect(link).toHaveAttribute("aria-current", "page");
-  }
-});
-
-test("strategy explains the engine rules and distinguishes missing evidence", async ({ page }) => {
-  await page.goto("/demo/strategy");
-  await expect(page.getByRole("heading", { name: "QQQ SMA200으로 판단하고 TQQQ를 매매" })).toBeVisible();
-  await expect(page.getByText("TQQQ 자체의 200일 이동평균선으로 판단하지 않습니다.", { exact: false })).toBeVisible();
-  await expect(page.getByText("확대 2회", { exact: true })).toBeVisible();
-  await expect(page.getByText("이후 +100%마다", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "SPYM 장기 적립" })).toBeVisible();
-  await expect(page.getByText("현재 평가에서 제공된 판단 근거", { exact: true })).toBeVisible();
-  await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "TQQQ 200d MA Strategy Dashboard");
-});
-
-test("authenticated canonical routes retain the protected read-only API", async ({ request }) => {
-  const authorization = `Basic ${Buffer.from(`test-reader:${process.env.E2E_PASSWORD}`).toString("base64")}`;
-  for (const path of ["/", "/strategy", "/market", "/trades", "/portfolio", "/engine"]) {
-    const response = await request.get(path, { headers: { authorization } });
-    expect(response.status()).toBe(200);
-    expect(response.headers()["cache-control"]).toContain("no-store");
-    expect(await response.text()).toContain("MOCK / 디자인 초안");
-  }
-  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) expect((await request.fetch("/api/dashboard/orders", { method, headers: { authorization } })).status()).toBe(405);
-});

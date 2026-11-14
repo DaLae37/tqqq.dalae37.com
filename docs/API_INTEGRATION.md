@@ -8,7 +8,7 @@
 |---|---|
 | /v1/status | 모드, 연결, 실거래 설정, 전략 판단, 진단 |
 | /v1/portfolio | 장부 수량, 사이클, 예산, 계좌 스냅샷 |
-| /v1/signals | QQQ 신호 마커와 주문 연결 |
+| /v1/signals | QQQ 신호와 주문 연결 |
 | /v1/orders | 주문 테이블과 상세 |
 | /v1/fills | 개별 FILL 조회. 계약 지원 |
 | /v1/order-events | 주문 전송, 상태 변경, 실제 체결과 상세 타임라인 |
@@ -20,7 +20,7 @@
 | /health/live | 프로세스와 루프 생존 |
 | /health/ready | DB/API/schema 연결 준비 |
 
-브라우저의 대응 경로는 `/api/dashboard/<resource>`다. `live`, `ready`는 엔진의 `/health/*`로만 변환한다. 경로는 고정 목록으로 제한한다. `limit=1..200`, `offset=0..100000` 이외 조회 파라미터는 허용하지 않는다. `/overview`, `/trades`, `/market`은 BFF의 화면용 조회다. `/api/demo/*`는 같은 UI 계약의 합성 전용 경로다.
+브라우저의 대응 경로는 `/api/dashboard/<resource>`다. `live`, `ready`는 엔진의 `/health/*`로만 변환한다. 경로는 고정 목록으로 제한한다. `limit=1..200`, `offset=0..100000` 이외 조회 파라미터는 허용하지 않는다. `/overview`, `/trades`는 BFF의 화면용 조회다. `/api/dashboard/market`과 `/api/demo/*`는 제공하지 않는다. 시세는 TradingView 공식 위젯에서 제공한다.
 
 ## 응답 기준
 
@@ -36,7 +36,7 @@
 
 `Authorization: Bearer`에는 32자 이상의 전용 read API 토큰을 사용한다. 운영은 ENGINE_READ_API_TOKEN_SECRET_ARN을 지정하고 Dashboard Task Role로 Secrets Manager AWSCURRENT의 token 필드를 읽는다. 평문 환경변수는 운영에서 사용하지 않는다. 60초 메모리 캐시와 동시 조회 병합, 만료 후 실패 시 차단, 401/403 후 캐시 무효화를 적용한다. Next.js 서버에서만 보관한다. 리다이렉트를 따르지 않고 인증정보를 다른 origin으로 전달하지 않는다. 요청은 GET, 5초 타임아웃, no-store이며 응답은 최대 2 MB다. TLS 검증을 해제하지 않는다. 사설 CA는 NODE_EXTRA_CA_CERTS로 신뢰 체인을 구성한다.
 
-프로세스당 엔진 요청은 분당 120회, 보호된 BFF는 분당 60회로 제한한다. 이는 이 애플리케이션의 보수적인 상한이며 메리츠의 공식 TPS를 의미하지 않는다. 다중 인스턴스에서는 프록시의 공유 제한이 필요하다. 실패 시 원본 예외와 응답 본문을 전달하지 않는다.
+프로세스당 엔진 요청은 분당 120회, 공개 BFF는 분당 60회로 제한한다. 이는 이 애플리케이션의 보수적인 상한이며 메리츠의 공식 TPS를 의미하지 않는다. 다중 인스턴스에서는 프록시의 공유 제한이 필요하다. 실패 시 원본 예외와 응답 본문을 전달하지 않는다.
 
 ## 조회 범위
 
@@ -46,8 +46,8 @@
 
 ## 연결 설정
 
-`.env.example`은 연결되지 않은 `DATA_ADAPTER=disabled`를 기본으로 제공한다. `/demo`는 설정과 관계없이 합성 데이터만 사용한다. 실제 조회를 사용하려면 외부 실행 환경에서 `DATA_ADAPTER=engine`과 엔진 주소, 허용 호스트, 인증정보를 설정한다. 배포 템플릿의 `REPLACE_*`를 치환한 파일은 공개 저장소에 포함하지 않는다.
+`.env.example`은 연결되지 않은 `DATA_ADAPTER=disabled`를 기본으로 제공한다. 합성 데이터는 테스트 전용이며 런타임에서 사용하지 않는다. 실제 조회를 사용하려면 외부 실행 환경에서 `DATA_ADAPTER=engine`과 엔진 주소, 허용 호스트, 인증정보를 설정한다. 배포 템플릿의 `REPLACE_*`를 치환한 파일은 공개 저장소에 포함하지 않는다.
 
 연결 실패는 해당 조회의 오류로 표시한다. 주소 확인, 인증정보 회전과 연결 교체 동작은 사용 환경에서 검증한다. 설정 방법은 [배포 문서](DEPLOYMENT.md)를 따른다.
 
-화면 경로와 별개로 인증된 BFF는 `/api/dashboard/*`를 유지한다. 새 메인과 상세 페이지가 브라우저에서 엔진 API를 직접 호출하지 않는다.
+화면과 BFF는 로그인 없이 공개한다. BFF 경로는 `/api/dashboard/*`를 유지한다. 새 메인과 상세 페이지가 브라우저에서 엔진 API를 직접 호출하지 않는다.

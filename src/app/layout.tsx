@@ -13,5 +13,5 @@ export const metadata: Metadata = {
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="ko" className={notoSansKr.variable}><body><a className="skip-link" href="#main">본문 바로가기</a><SiteHeader /><main id="main" aria-label={siteName} className="site-main">{children}</main>
-    <footer className="site-footer"><span>© 2026 DaLae37 <span className="footer-separator">/</span> Personal trading observatory</span><span>Built with OpenAI Codex <span className="footer-separator">/</span> BSD 3-Clause</span></footer></body></html>;
+    <footer className="site-footer"><span>© 2026 DaLae37 <span className="footer-separator">/</span> Personal trading observatory</span><span>Charts by <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a> <span className="footer-separator">/</span> Built with OpenAI Codex <span className="footer-separator">/</span> BSD 3-Clause</span></footer></body></html>;
 }

@@ -72,16 +72,6 @@
           "value": "REPLACE_READ_SECRET_ARN"
         }
       ],
-      "secrets": [
-        {
-          "name": "DASHBOARD_USERNAME",
-          "valueFrom": "REPLACE_AUTH_SECRET_ARN:username::"
-        },
-        {
-          "name": "DASHBOARD_PASSWORD_HASH",
-          "valueFrom": "REPLACE_AUTH_SECRET_ARN:password_hash::"
-        }
-      ],
       "healthCheck": {
         "command": [
           "CMD",
@@ -100,6 +90,41 @@
           "awslogs-group": "REPLACE_LOG_GROUP",
           "awslogs-region": "ap-northeast-2",
           "awslogs-stream-prefix": "dashboard"
+        }
+      }
+    },
+    {
+      "name": "cloudflared",
+      "image": "cloudflare/cloudflared:latest",
+      "essential": true,
+      "command": [
+        "tunnel",
+        "--no-autoupdate",
+        "run"
+      ],
+      "dependsOn": [
+        {
+          "containerName": "dashboard",
+          "condition": "HEALTHY"
+        }
+      ],
+      "linuxParameters": {
+        "initProcessEnabled": true
+      },
+      "stopTimeout": 30,
+      "portMappings": [],
+      "secrets": [
+        {
+          "name": "TUNNEL_TOKEN",
+          "valueFrom": "REPLACE_CLOUDFLARE_TUNNEL_TOKEN_SECRET_ARN"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "REPLACE_LOG_GROUP",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "cloudflared"
         }
       }
     }

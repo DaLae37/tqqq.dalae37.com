@@ -1,4 +1,4 @@
-import type { Resource } from "./contracts.ts";
+import type { Resource } from "../src/lib/contracts.ts";
 
 // Synthetic, deterministic examples. Never used as a fallback for the engine.
 export const mockAt = "2026-11-12T20:45:00Z";

@@ -1,6 +1,5 @@
 import "server-only";
 import { resourceSchemas, type Resource, type ResourceData, type DataResult, type Overview } from "../contracts.ts";
-import { mockResource } from "../mock.ts";
 import { permitRead } from "./rate-limit.ts";
 import { engineToken, invalidateEngineToken } from "./engine-token.ts";
 
@@ -31,59 +30,56 @@ async function boundedJson(response: Response): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-export async function readResource<R extends Resource>(resource: R, demo: boolean, limit = 100, offset = 0): Promise<DataResult<ResourceData<R>>> {
-  const source = demo ? "mock" : process.env.DATA_ADAPTER === "engine" ? "engine" : process.env.DATA_ADAPTER === "mock" ? "mock" : "disabled";
+export async function readResource<R extends Resource>(resource: R, limit = 100, offset = 0): Promise<DataResult<ResourceData<R>>> {
+  const source = process.env.DATA_ADAPTER === "engine" ? "engine" : "disabled";
   const result: DataResult<ResourceData<R>> = { data: null, source, fetchedAt: new Date().toISOString(), error: null };
   if (source === "disabled") return { ...result, error: "not_configured" };
   let payload: unknown;
-  if (source === "mock") payload = mockResource(resource, limit, offset);
-  else {
-    if (!permitRead("engine")) return { ...result, error: "unavailable" };
-    let url: URL;
-    let token: string;
-    try {
-      url = engineBaseUrl();
-      token = await engineToken();
-    } catch { return { ...result, error: "not_configured" }; }
-    url.pathname = resource === "live" || resource === "ready" ? `/health/${resource}` : `/v1/${resource}`;
-    url.searchParams.set("limit", String(limit));
-    url.searchParams.set("offset", String(offset));
-    try {
-      const response = await fetch(url, {
-        method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        cache: "no-store", redirect: "error", signal: AbortSignal.timeout(5000),
-      });
-      if (response.status === 401 || response.status === 403) {
-        invalidateEngineToken();
-        return { ...result, error: "unauthorized" };
-      }
-      // Health 503 with {ok:false} is a known state, rather than an old healthy result.
-      if (!response.ok && !(["live", "ready"].includes(resource) && response.status === 503)) return { ...result, error: "unavailable" };
-      payload = await boundedJson(response);
-    } catch { return { ...result, error: "unavailable" }; }
-  }
+  if (!permitRead("engine")) return { ...result, error: "unavailable" };
+  let url: URL;
+  let token: string;
+  try {
+    url = engineBaseUrl();
+    token = await engineToken();
+  } catch { return { ...result, error: "not_configured" }; }
+  url.pathname = resource === "live" || resource === "ready" ? `/health/${resource}` : `/v1/${resource}`;
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("offset", String(offset));
+  try {
+    const response = await fetch(url, {
+      method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      cache: "no-store", redirect: "error", signal: AbortSignal.timeout(5000),
+    });
+    if (response.status === 401 || response.status === 403) {
+      invalidateEngineToken();
+      return { ...result, error: "unauthorized" };
+    }
+    // Health 503 with {ok:false} is a known state, rather than an old healthy result.
+    if (!response.ok && !(["live", "ready"].includes(resource) && response.status === 503)) return { ...result, error: "unavailable" };
+    payload = await boundedJson(response);
+  } catch { return { ...result, error: "unavailable" }; }
   const parsed = resourceSchemas[resource].safeParse(payload);
   if (!parsed.success) return { ...result, error: "invalid_response" };
   return { ...result, data: parsed.data as ResourceData<R>, fetchedAt: new Date().toISOString() };
 }
 
-export async function overview(demo: boolean): Promise<Overview> {
+export async function overview(): Promise<Overview> {
   const [status, portfolio, versionRecords, annual, live, ready] = await Promise.all([
-    readResource("status", demo), readResource("portfolio", demo), records("strategy-versions", demo),
-    readResource("annual-pnl", demo), readResource("live", demo), readResource("ready", demo),
+    readResource("status"), readResource("portfolio"), records("strategy-versions"),
+    readResource("annual-pnl"), readResource("live"), readResource("ready"),
   ]);
   const versions = { ...versionRecords, data: versionRecords.data ? { items: versionRecords.data.items, limit: 200, offset: 0 } : null };
   return { status, portfolio, versions, annual, live, ready };
 }
 
-export async function records<R extends "orders" | "signals" | "order-events" | "tax-ledger" | "strategy-versions">(resource: R, demo: boolean) {
+export async function records<R extends "orders" | "signals" | "order-events" | "tax-ledger" | "strategy-versions">(resource: R) {
   const items: Array<ResourceData<R>["items"][number]> = [];
   for (let offset = 0; offset < 2000; offset += 200) {
-    const result = await readResource(resource, demo, 200, offset);
+    const result = await readResource(resource, 200, offset);
     if (!result.data) return { ...result, data: null, truncated: false };
     items.push(...result.data.items as Array<ResourceData<R>["items"][number]>);
     if (result.data.items.length < 200) return { ...result, data: { items }, truncated: false };
   }
-  return { data: { items }, source: demo ? "mock" as const : process.env.DATA_ADAPTER === "mock" ? "mock" as const : "engine" as const,
+  return { data: { items }, source: "engine" as const,
     fetchedAt: new Date().toISOString(), error: null, truncated: true };
 }

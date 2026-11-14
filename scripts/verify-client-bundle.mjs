@@ -7,8 +7,8 @@ async function files(directory) {
     return entry.isDirectory() ? files(path) : [path];
   }))).flat();
 }
-const markers = ["ENGINE_READ_API_TOKEN", "DASHBOARD_PASSWORD_HASH", "ENGINE_API_BASE_URL", "ENGINE_API_ALLOWED_HOST",
-  "ENGINE_READ_API_TOKEN_SECRET_ARN", "SecretsManagerClient", "synthetic-e2e-engine-secret-must-stay-server-side"];
+const markers = ["ENGINE_READ_API_TOKEN", "ENGINE_API_BASE_URL", "ENGINE_API_ALLOWED_HOST",
+  "ENGINE_READ_API_TOKEN_SECRET_ARN", "SecretsManagerClient", "demo-order-", "synthetic-e2e-engine-secret-must-stay-server-side"];
 for (const path of await files(".next/static")) {
   if (!path.endsWith(".js")) continue;
   const content = await readFile(path, "utf8");

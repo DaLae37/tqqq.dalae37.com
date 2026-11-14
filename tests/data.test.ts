@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resourceSchemas, type OrderEvent } from "../src/lib/contracts.ts";
-import { mockResource } from "../src/lib/mock.ts";
+import { mockResource } from "./fixtures.ts";
 import { money, threshold, time } from "../src/lib/format.ts";
 import { uniqueFills, filterTrades } from "../src/lib/trades.ts";
 
