@@ -70,7 +70,7 @@ export async function DashboardView({ segments }: { segments: string[] }) {
 
   }
   return <div className="dashboard-page">
-    <header className="page-heading"><div><p className="eyebrow">READ ONLY / {section ? siteName : "DASHBOARD"}</p><h1>{title}</h1><p>신호와 실행을 구분하고, 계좌의 흐름을 확인합니다.</p></div><RefreshControl /></header>
+    <header className="page-heading"><div><p className="eyebrow">{section ? section.toUpperCase() : "DASHBOARD"}</p><h1>{title}</h1><p>신호와 실행을 구분하고, 계좌의 흐름을 확인합니다.</p></div><RefreshControl /></header>
     <div className="engine-strip"><span className={`engine-indicator${data.status.error || stale ? " is-unknown" : ""}`}><span className="status-dot" />{data.status.error ? "상태 확인 불가" : `${status?.mode.toUpperCase() ?? "—"}${stale ? " / 관측 오래됨" : ""}`}</span><span>{status?.mode === "pause" ? "관찰 중 / 주문 비활성" : status ? `주문 ${status.orders_enabled ? "활성" : "비활성"}` : "엔진 연결을 확인하세요"}</span><span className="strip-divider" /><span>전략 <b>v{status?.strategy_version ?? "—"}</b></span><span className="strip-time">마지막 데이터 갱신 {time(data.status.error ? null : data.status.fetchedAt)} KST</span><Link className="text-link" href={`${base}/engine`}>엔진 상세 ↗</Link></div>
     <DataState result={data.status} name="엔진" />{data.status.error && <p className="notice">현재 상태를 확인할 수 없습니다. 이전 정상 상태를 표시하지 않습니다.</p>}{content}
   </div>;

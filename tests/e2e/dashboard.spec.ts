@@ -24,12 +24,12 @@ test("all pages and RSC are public, missing data stays empty and demo routes are
 
 test("official widget switches symbols and follows the site theme without engine data", async ({ page }) => {
   await page.goto("/market");
-  await expect(page.getByTitle("QQQ 시세 — TradingView 공식 위젯")).toBeVisible();
-  const config = () => page.locator(`script[src="${widgetScript}"]`).textContent().then((value) => JSON.parse(value!));
-  expect(await config()).toMatchObject({ symbol: "NASDAQ:QQQ", interval: "D", allow_symbol_change: false });
-  await page.getByRole("button", { name: "TQQQ", exact: true }).click();
   await expect(page.getByTitle("TQQQ 시세 — TradingView 공식 위젯")).toBeVisible();
-  expect(await config()).toMatchObject({ symbol: "NASDAQ:TQQQ" });
+  const config = () => page.locator(`script[src="${widgetScript}"]`).textContent().then((value) => JSON.parse(value!));
+  expect(await config()).toMatchObject({ symbol: "NASDAQ:TQQQ", interval: "D", allow_symbol_change: false });
+  await page.getByRole("button", { name: "QQQ", exact: true }).click();
+  await expect(page.getByTitle("QQQ 시세 — TradingView 공식 위젯")).toBeVisible();
+  expect(await config()).toMatchObject({ symbol: "NASDAQ:QQQ" });
   await page.getByRole("button", { name: "SPYM", exact: true }).click();
   await expect(page.getByTitle("SPYM 시세 — TradingView 공식 위젯")).toBeVisible();
   expect(await config()).toMatchObject({ symbol: "AMEX:SPYM" });
@@ -45,7 +45,7 @@ test("blocked widget offers retry and a source link without synthetic prices", a
   await page.goto("/");
   await expect(page.getByText("TradingView 위젯을 불러오지 못했습니다.", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "다시 불러오기", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "QQQ chart", exact: true })).toHaveAttribute("href", "https://www.tradingview.com/symbols/NASDAQ-QQQ/");
+  await expect(page.getByRole("link", { name: "TQQQ chart", exact: true })).toHaveAttribute("href", "https://www.tradingview.com/symbols/NASDAQ-TQQQ/");
   await expect(page.locator(".chart-heading")).not.toContainText("$");
   await expect(page.locator(".summary-card")).toHaveCount(3);
 });
@@ -61,8 +61,12 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("/");
-    await expect(page.getByTitle("QQQ 시세 — TradingView 공식 위젯")).toBeVisible();
-    await expect(page).toHaveTitle("TQQQ 200d MA Strategy Dashboard");
+    await expect(page.getByTitle("TQQQ 시세 — TradingView 공식 위젯")).toBeVisible();
+    await expect(page).toHaveTitle("tqqq");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("TQQQ 200d MA Strategy Dashboard");
+    await expect(page.locator(".site-header")).not.toContainText("TQQQ 200d MA Strategy Dashboard");
+    await expect(page.locator("body")).not.toContainText("READ ONLY");
+    await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "tqqq");
     await expect(page.locator(".summary-card")).toHaveCount(3);
     await expect(page.locator(".chart-toolbar, .table-filters, .strategy-panel, .demo-banner")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

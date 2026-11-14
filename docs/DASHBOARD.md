@@ -6,7 +6,7 @@
 
 | 화면 | 경로 | 데이터 |
 |---|---|---|
-| Dashboard | / | 공개 핵심 요약, 세 개의 지표, TradingView QQQ 미리보기, 최근 주문 5건 |
+| Dashboard | / | 공개 핵심 요약, 세 개의 지표, TradingView TQQQ 미리보기, 최근 주문 5건 |
 | Strategy | /strategy | 전략 설명, 현재 상태와 동일 신호의 판단 근거 |
 | Market | /market | TradingView 공식 종목별 시세 차트 |
 | Trades | /trades | 최신 주문 범위의 필터·정렬·페이지네이션 |

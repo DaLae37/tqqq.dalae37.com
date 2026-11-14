@@ -3,6 +3,35 @@ import { resourceSchemas, type Resource, type ResourceData, type DataResult, typ
 import { permitRead } from "./rate-limit.ts";
 import { engineToken, invalidateEngineToken } from "./engine-token.ts";
 
+function failureCode(error: unknown, depth = 0): string {
+  if (!error || typeof error !== "object" || depth > 4) return "request_failed";
+  const value = error as { code?: unknown; name?: unknown; cause?: unknown; errors?: unknown };
+  const codes: Record<string, string> = {
+    ENOTFOUND: "dns_lookup_failed", EAI_AGAIN: "dns_lookup_failed",
+    ECONNREFUSED: "connection_refused", ECONNRESET: "connection_reset",
+    ENETUNREACH: "network_unreachable", EHOSTUNREACH: "network_unreachable",
+    ETIMEDOUT: "connection_timeout", UND_ERR_CONNECT_TIMEOUT: "connection_timeout",
+    TimeoutError: "connection_timeout", AbortError: "request_aborted",
+    AccessDeniedException: "secret_access_denied", ResourceNotFoundException: "secret_not_found",
+    CredentialsProviderError: "aws_credentials_unavailable", SyntaxError: "invalid_json",
+    ENGINE_RESPONSE_TOO_LARGE: "response_too_large", ENGINE_EMPTY_BODY: "empty_body",
+    CERT_HAS_EXPIRED: "tls_verification_failed", UNABLE_TO_VERIFY_LEAF_SIGNATURE: "tls_verification_failed",
+    DEPTH_ZERO_SELF_SIGNED_CERT: "tls_verification_failed", ERR_TLS_CERT_ALTNAME_INVALID: "tls_verification_failed",
+  };
+  for (const key of [value.code, value.name]) if (typeof key === "string" && Object.hasOwn(codes, key)) return codes[key];
+  for (const cause of [value.cause, ...(Array.isArray(value.errors) ? value.errors.slice(0, 5) : [])]) {
+    const code = failureCode(cause, depth + 1);
+    if (code !== "request_failed") return code;
+  }
+  return "request_failed";
+}
+
+function logReadFailure(resource: Resource, stage: string, code: string, httpStatus?: number) {
+  // Fixed resource names and allowlisted codes only. Never log URLs, tokens or raw exceptions.
+  console.warn(JSON.stringify({ event: "engine_read_failed", resource, stage, code,
+    ...(httpStatus == null ? {} : { http_status: httpStatus }) }));
+}
+
 export function engineBaseUrl(): URL {
   const url = new URL(process.env.ENGINE_API_BASE_URL ?? "");
   if (url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("invalid origin");
@@ -16,7 +45,7 @@ export function engineBaseUrl(): URL {
 }
 
 async function boundedJson(response: Response): Promise<unknown> {
-  if (!response.body) throw new Error("empty body");
+  if (!response.body) throw Object.assign(new Error(), { code: "ENGINE_EMPTY_BODY" });
   const reader = response.body.getReader();
   let size = 0;
   const chunks: Uint8Array[] = [];
@@ -24,7 +53,7 @@ async function boundedJson(response: Response): Promise<unknown> {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.length;
-    if (size > 2_000_000) { await reader.cancel(); throw new Error("response too large"); }
+    if (size > 2_000_000) { await reader.cancel(); throw Object.assign(new Error(), { code: "ENGINE_RESPONSE_TOO_LARGE" }); }
     chunks.push(value);
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -35,31 +64,59 @@ export async function readResource<R extends Resource>(resource: R, limit = 100,
   const result: DataResult<ResourceData<R>> = { data: null, source, fetchedAt: new Date().toISOString(), error: null };
   if (source === "disabled") return { ...result, error: "not_configured" };
   let payload: unknown;
-  if (!permitRead("engine")) return { ...result, error: "unavailable" };
+  if (!permitRead("engine")) {
+    logReadFailure(resource, "rate_limit", "rate_limited");
+    return { ...result, error: "unavailable" };
+  }
   let url: URL;
-  let token: string;
   try {
     url = engineBaseUrl();
-    token = await engineToken();
-  } catch { return { ...result, error: "not_configured" }; }
-  url.pathname = resource === "live" || resource === "ready" ? `/health/${resource}` : `/v1/${resource}`;
+  } catch {
+    logReadFailure(resource, "configuration", "invalid_origin");
+    return { ...result, error: "not_configured" };
+  }
+  const health = resource === "live" || resource === "ready";
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (!health) {
+    try { headers.Authorization = `Bearer ${await engineToken()}`; }
+    catch (error) {
+      logReadFailure(resource, "token", failureCode(error));
+      return { ...result, error: "not_configured" };
+    }
+  }
+  url.pathname = health ? `/health/${resource}` : `/v1/${resource}`;
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("offset", String(offset));
+  let response: Response;
   try {
-    const response = await fetch(url, {
-      method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    response = await fetch(url, {
+      method: "GET", headers,
       cache: "no-store", redirect: "error", signal: AbortSignal.timeout(5000),
     });
-    if (response.status === 401 || response.status === 403) {
-      invalidateEngineToken();
-      return { ...result, error: "unauthorized" };
-    }
-    // Health 503 with {ok:false} is a known state, rather than an old healthy result.
-    if (!response.ok && !(["live", "ready"].includes(resource) && response.status === 503)) return { ...result, error: "unavailable" };
-    payload = await boundedJson(response);
-  } catch { return { ...result, error: "unavailable" }; }
+  } catch (error) {
+    logReadFailure(resource, "request", failureCode(error));
+    return { ...result, error: "unavailable" };
+  }
+  if (response.status === 401 || response.status === 403) {
+    invalidateEngineToken();
+    logReadFailure(resource, "response", "unauthorized", response.status);
+    return { ...result, error: "unauthorized" };
+  }
+  // Health 503 with {ok:false} is a known state, rather than an old healthy result.
+  if (!response.ok && !(health && response.status === 503)) {
+    logReadFailure(resource, "response", "http_error", response.status);
+    return { ...result, error: "unavailable" };
+  }
+  try { payload = await boundedJson(response); }
+  catch (error) {
+    logReadFailure(resource, "response", failureCode(error));
+    return { ...result, error: "invalid_response" };
+  }
   const parsed = resourceSchemas[resource].safeParse(payload);
-  if (!parsed.success) return { ...result, error: "invalid_response" };
+  if (!parsed.success) {
+    logReadFailure(resource, "response", "invalid_schema");
+    return { ...result, error: "invalid_response" };
+  }
   return { ...result, data: parsed.data as ResourceData<R>, fetchedAt: new Date().toISOString() };
 }
 

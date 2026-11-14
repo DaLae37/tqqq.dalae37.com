@@ -37,7 +37,7 @@ QQQ의 SMA 기반 전략 신호와 실제 거래 종목인 TQQQ, SPYM의 주문,
 
 | 메뉴 | 경로 | 용도 |
 |---|---|---|
-| Dashboard | / | 엔진 상태, 세 개의 핵심 지표, TradingView QQQ 시세 미리보기와 최근 거래 5건 |
+| Dashboard | / | 엔진 상태, 세 개의 핵심 지표, TradingView TQQQ 시세 미리보기와 최근 거래 5건 |
 | Strategy | /strategy | 전략 원리, 현재 상태와 신호 판단 근거 |
 | Market | /market | 종목·기간·봉 간격별 상세 차트 |
 | Trades | /trades | 주문·체결 이력, 필터와 개별 이벤트 |

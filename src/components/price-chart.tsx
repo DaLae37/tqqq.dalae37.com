@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-const symbols = { QQQ: "NASDAQ:QQQ", TQQQ: "NASDAQ:TQQQ", SPYM: "AMEX:SPYM" };
+const symbols = { TQQQ: "NASDAQ:TQQQ", QQQ: "NASDAQ:QQQ", SPYM: "AMEX:SPYM" };
 
 export function PriceChart({ preview = false }: { preview?: boolean }) {
-  const [symbol, setSymbol] = useState<keyof typeof symbols>("QQQ");
+  const [symbol, setSymbol] = useState<keyof typeof symbols>("TQQQ");
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [refresh, setRefresh] = useState(0);
@@ -49,7 +49,7 @@ export function PriceChart({ preview = false }: { preview?: boolean }) {
     return () => { disposed = true; observer.disconnect(); window.clearTimeout(timeout); script.onerror = null; target.replaceChildren(); };
   }, [symbol, theme, preview, refresh]);
   return <section className="panel chart-panel" aria-labelledby="chart-title">
-    <div className="panel-heading"><div><p className="eyebrow">MARKET</p><h2 id="chart-title">{preview ? "QQQ 시세 미리보기" : "종목별 시세 차트"}</h2></div><span className="badge">TradingView</span></div>
+    <div className="panel-heading"><div><p className="eyebrow">MARKET</p><h2 id="chart-title">{preview ? "TQQQ 시세 미리보기" : "종목별 시세 차트"}</h2></div><span className="badge">TradingView</span></div>
     {!preview && <div className="chart-toolbar"><div className="segmented" aria-label="종목 선택">{(Object.keys(symbols) as Array<keyof typeof symbols>).map((item) => <button key={item} aria-pressed={symbol === item} onClick={() => setSymbol(item)}>{item}</button>)}</div></div>}
     <div className="chart-heading"><strong>{symbol}<small>{symbol === "QQQ" ? "전략 판단용 / 거래 종목 아님" : symbol === "SPYM" ? "장기 적립 종목" : "거래 종목"}</small></strong></div>
     <div ref={host} className="chart-canvas tradingview-host" aria-label={`${symbol} 시세 차트`} />

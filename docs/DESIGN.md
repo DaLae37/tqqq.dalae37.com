@@ -1,12 +1,12 @@
 # 디자인 초안
 
-현재 디자인은 검토용이다. 참고 사이트의 Noto Sans KR, 녹색 CSS 변수, 여백, 간결한 헤더와 Light/Dark 연속성을 유지하면서 대시보드의 정보 밀도를 높였다.
+현재 디자인은 검토용이다. Noto Sans KR, 여백, 간결한 헤더와 기존 화면 구성을 유지한다. 색 조합은 [세이브티커 뉴스](https://www.saveticker.com/news)를 참고하여 밝은 회색 배경, 흰 카드, 짙은 회색 텍스트와 청보라색 강조색을 사용한다. 참고 사이트의 강조색 #6365ff는 작은 글자의 대비를 위해 Light에서 #4f51db로 조정하고, Dark는 차콜 배경과 밝은 청보라색으로 맞춘다.
 
-상단 프로젝트 제목과 상태, 요약 카드, 중앙 QQQ 시세 미리보기, 하단 최근 거래 5건 순서다. 전략 설명과 상태는 Strategy, 상세 차트는 Market에서 제공한다. 거래 상세, 보유 현황과 엔진 상태는 별도 화면이다. 1,440px와 390px 브라우저 검증 코드를 제공하며 실제 실행 결과는 검증 기록에 구분한다.
+상단 프로젝트 제목과 상태, 요약 카드, 중앙 TQQQ 시세 미리보기, 하단 최근 거래 5건 순서다. 전략 설명과 상태는 Strategy, 상세 차트는 Market에서 제공한다. 거래 상세, 보유 현황과 엔진 상태는 별도 화면이다. 1,440px와 390px 브라우저 검증 코드를 제공하며 실제 실행 결과는 검증 기록에 구분한다.
 
 ## 시세 차트
 
-[TradingView 공식 Advanced Chart 위젯](https://www.tradingview.com/widget-docs/widgets/charts/advanced-chart/)을 사용한다. 메인은 QQQ 미리보기, Market은 QQQ·TQQQ·SPYM 종목 선택과 위젯 자체의 기간·봉 간격 조작을 제공한다. 사이트의 Light/Dark 설정과 위젯 테마를 맞추고 종목 전환 시 이전 위젯을 정리한다.
+[TradingView 공식 Advanced Chart 위젯](https://www.tradingview.com/widget-docs/widgets/charts/advanced-chart/)을 사용한다. 메인은 TQQQ 미리보기, Market은 TQQQ 기본 선택과 QQQ·SPYM 종목 전환, 위젯 자체의 기간·봉 간격 조작을 제공한다. 사이트의 Light/Dark 설정과 위젯 테마를 맞추고 종목 전환 시 이전 위젯을 정리한다.
 
 TradingView의 로고와 출처 링크를 유지하며 사이트 하단과 README에도 사용 사실을 명시한다. 엔진 신호와 실제 주문·체결 마커를 위젯에 덧그리지 않는다. 엔진이 판단한 SMA·완충 폭·신호는 기존 전략 패널에서, 본인의 거래·운용 성과는 별도 표와 카드에서 확인한다. 위젯의 현재 시세와 엔진의 확정 종가 판단은 출처와 시점이 다를 수 있음을 표시한다.
 
