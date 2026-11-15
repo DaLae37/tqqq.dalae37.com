@@ -29,7 +29,7 @@ export async function DashboardView({ segments }: { segments: string[] }) {
   const title = { "": "TQQQ 200d MA Strategy Dashboard", strategy: "Strategy", market: "Market", trades: segments[1] ? "거래 상세" : "거래 이력", portfolio: "보유 현황", engine: "엔진 상태" }[section];
   const description = {
     "": "메리츠증권 Open API와 Super365 계좌로 운용하는 TQQQ자동매매 대시보드입니다.",
-    strategy: "QQQ SMA200 기반 매매 전략과 동적 완충 폭, 분할 익절 및 SPYM 적립 현황을 확인합니다.",
+    strategy: "TQQQ 200d MA 기반 매매 전략 소개입니다.",
     market: "TradingView 공식 위젯으로 TQQQ·QQQ·SPYM의 시세와 거래량을 확인합니다.",
     trades: segments[1] ? "선택한 주문의 접수·상태 변경과 실제 체결 내역을 확인합니다." : "TQQQ·SPYM의 주문 및 체결 이력을 조회하고 종목·기간·상태별로 확인합니다.",
     portfolio: "TQQQ·SPYM의 보유 현황, 계좌 평가금액과 확인된 실현손익 및 SPYM 적립 예산을 확인합니다.",
@@ -42,7 +42,7 @@ export async function DashboardView({ segments }: { segments: string[] }) {
     const ledger = await readResource("tax-ledger", 200);
     content = <><SummaryCards data={data} /><PortfolioPanel data={data} ledger={ledger.data} /><DataState result={ledger} name="최근 세무 원장 최대 200건" /></>;
   } else if (section === "strategy") {
-    content = <div className="page-sections"><StrategyGuide data={data} /><StrategyPanel data={data} /><p className="footnote">시세 차트는 TradingView 공식 위젯에서 제공합니다. 위젯의 현재 시세와 엔진이 평가한 확정 종가·SMA·기준선은 시점과 출처가 다를 수 있습니다.</p></div>;
+    content = <div className="page-sections"><StrategyGuide data={data} /><StrategyPanel data={data} /><div className="strategy-copy"><p className="footnote">시세 차트는 TradingView 공식 위젯에서 제공합니다.</p><p className="footnote">위젯의 현재 시세와 엔진이 평가한 확정 종가·SMA·기준선은 시점과 출처가 다를 수 있습니다.</p></div></div>;
   } else if (section === "market") content = <PriceChart />;
   else {
     const ordersResult = await records("orders");

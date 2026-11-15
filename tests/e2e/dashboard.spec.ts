@@ -56,7 +56,7 @@ test("public BFF rejects arbitrary resources, URLs, invalid pagination and write
   for (const method of ["POST", "PUT", "PATCH", "DELETE"]) expect((await request.fetch("/api/dashboard/orders", { method })).status()).toBe(405);
 });
 
-for (const width of [1440, 390]) {
+for (const width of [1440, 768, 390, 320]) {
   test(`public navigation and Light/Dark layout at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
@@ -89,7 +89,7 @@ for (const width of [1440, 390]) {
       const link = page.getByRole("navigation").getByRole("link", { name, exact: true });
       await link.click(); await expect(page).toHaveURL(path); await expect(link).toHaveAttribute("aria-current", "page");
       const descriptions: Record<string, string> = {
-        Strategy: "QQQ SMA200 기반 매매 전략과 동적 완충 폭, 분할 익절 및 SPYM 적립 현황을 확인합니다.",
+        Strategy: "TQQQ 200d MA 기반 매매 전략 소개입니다.",
         Market: "TradingView 공식 위젯으로 TQQQ·QQQ·SPYM의 시세와 거래량을 확인합니다.",
         Trades: "TQQQ·SPYM의 주문 및 체결 이력을 조회하고 종목·기간·상태별로 확인합니다.",
         Portfolio: "TQQQ·SPYM의 보유 현황, 계좌 평가금액과 확인된 실현손익 및 SPYM 적립 예산을 확인합니다.",
@@ -99,10 +99,18 @@ for (const width of [1440, 390]) {
       await expect(page.locator(".page-heading > div > p:last-child")).toHaveText(descriptions[name]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       if (name === "Strategy") {
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText("Strategy");
         await expect(page.getByRole("heading", { name: "QQQ SMA200으로 판단하고 TQQQ를 매매" })).toBeVisible();
         await expect(page.getByText("확대 2회", { exact: true })).toBeVisible();
         await expect(page.getByText("이후 +100%마다", { exact: true })).toBeVisible();
         await page.emulateMedia({ colorScheme: "light" });
+        for (const phrase of await page.locator(".strategy-nowrap").all()) {
+          expect(await phrase.evaluate((element) => {
+            const range = document.createRange(); range.selectNodeContents(element);
+            return [...range.getClientRects()].length;
+          })).toBe(1);
+        }
+        await page.locator(".strategy-guide > .panel").first().screenshot({ path: `test-results/strategy-opening-${width}.png` });
         await page.screenshot({ path: `test-results/strategy-${width}-light.png`, fullPage: true });
         await page.emulateMedia({ colorScheme: "dark" });
         await page.screenshot({ path: `test-results/strategy-${width}-dark.png`, fullPage: true });

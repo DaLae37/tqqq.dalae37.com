@@ -67,7 +67,7 @@ test("Engine distinguishes read API readiness from trading module readiness", as
   await expect(page.getByText("pause는 정상 관찰 모드", { exact: true })).toBeVisible();
   await expect(page.locator(".data-error")).toHaveCount(0);
   const normal = health.locator(".status-badge"), inactive = page.locator(".strip-orders .status-badge");
-  await expect(normal).toHaveAttribute("data-tone", "active");
+  await expect(normal).toHaveAttribute("data-tone", "healthy");
   await expect(inactive).toHaveAttribute("data-tone", "paused");
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });

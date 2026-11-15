@@ -5,7 +5,7 @@ import { StatusBadge, modeTone, type StatusTone } from "@/components/status-badg
 
 export function HealthPanel({ data }: { data: Overview }) {
   const status = data.status.data;
-  function state(value: boolean | undefined) { return <StatusBadge tone={value == null ? "neutral" : value ? "active" : "error"}>{value == null ? "확인 불가" : value ? "정상" : "준비되지 않음"}</StatusBadge>; }
+  function state(value: boolean | undefined) { return <StatusBadge tone={value == null ? "neutral" : value ? "healthy" : "error"}>{value == null ? "확인 불가" : value ? "정상" : "준비되지 않음"}</StatusBadge>; }
   function enabled(value: boolean | undefined) { return <StatusBadge tone={value == null ? "neutral" : value ? "active" : "paused"}>{value == null ? "확인 불가" : value ? "활성" : "비활성"}</StatusBadge>; }
   function error(value: string | null | undefined) { return <span className={value ? "health-error" : "muted"}>{value ?? (status ? "없음" : "확인 불가")}</span>; }
   function diagnostic(value: Status["last_error_details"]) {
@@ -15,7 +15,7 @@ export function HealthPanel({ data }: { data: Overview }) {
     broker: "메리츠 연결", execution_lease: "실행 권한", decision: "전략 판단", order_management: "기존 주문 관리",
     orders: "신규 주문", history: "거래 기록", tax: "세금 처리", read_api: "읽기 API" };
   const moduleStates = { idle: "대기", ready: "정상", blocked: "차단", error: "오류" };
-  const moduleTones: Record<keyof typeof moduleStates, StatusTone> = { idle: "neutral", ready: "active", blocked: "paused", error: "error" };
+  const moduleTones: Record<keyof typeof moduleStates, StatusTone> = { idle: "neutral", ready: "healthy", blocked: "paused", error: "error" };
   const rows: Array<[string, React.ReactNode, string]> = [
     ["프로세스 생존", state(data.live.data?.ok), "/health/live"],
     ["읽기 API 준비", state(data.ready.data?.ok), "조회 토큰·조회 DB·스키마의 최근 점검 결과"],

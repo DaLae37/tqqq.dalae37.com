@@ -1,4 +1,4 @@
-export type StatusTone = "active" | "paused" | "error" | "neutral" | "test";
+export type StatusTone = "healthy" | "active" | "paused" | "error" | "neutral" | "test";
 
 export function modeTone(mode: string | undefined): StatusTone {
   return mode === "start" ? "active" : mode === "pause" ? "paused" : mode === "stop" ? "error" : mode === "test" ? "test" : "neutral";
