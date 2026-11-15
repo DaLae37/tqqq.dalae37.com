@@ -13,6 +13,17 @@ const signal = z.object({
   strategy_version: text, effective_buy_buffer: maybeDecimal, effective_sell_buffer: maybeDecimal,
 });
 
+// Proposed read-only extension. Existing engines may omit this snapshot.
+const trendReferenceSchema = z.object({
+  status: z.enum(["ready", "unavailable"]), reason: maybeText,
+  signal_symbol: z.literal("QQQ"), trade_symbol: z.literal("TQQQ"),
+  evaluated_at: timestamp, source_day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  sma_period: integer, close_count: integer, close_confirmed: z.boolean(),
+  close: maybeDecimal, sma_value: maybeDecimal,
+  buy_buffer: maybeDecimal, sell_buffer: maybeDecimal,
+  buy_threshold: maybeDecimal, sell_threshold: maybeDecimal,
+});
+
 export const statusSchema = z.object({
   mode: z.enum(["pause", "start", "test", "stop"]), orders_enabled: z.boolean(),
   dry_run: z.boolean().optional(), health: z.object({ db: z.boolean(), api: z.boolean(), schema: z.boolean().optional() }),
@@ -25,6 +36,7 @@ export const statusSchema = z.object({
     status: maybeText, session: maybeText, requirements: z.array(text).optional(),
     trend: signal.nullish(), take_profit: signal.nullish(), close_count: integer.optional(),
     signals_persisted: z.boolean().optional(),
+    trend_reference: trendReferenceSchema.nullish(),
     trend_buffer: z.object({ buy: decimal, sell: decimal, steps: integer, expires_at: timestamp.nullish() }).optional(),
     funding: z.object({ mode: maybeText, cash: maybeDecimal, settled_cash: maybeDecimal, orderable: maybeDecimal,
       trading_cash: maybeDecimal, protected_cash: maybeDecimal, funding_debit: maybeDecimal }).optional(),

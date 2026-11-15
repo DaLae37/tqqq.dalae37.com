@@ -10,7 +10,6 @@
 | /dashboard/* | 기존 경로 호환용 공개 화면 |
 | /api/dashboard/* | 허용 목록의 공개 읽기 전용 BFF |
 | /healthz | 최소 웹 상태. 엔진이나 계좌 상태 없음 |
-| /demo, /api/demo/* | 제거. 404 응답 |
 
 시세 차트는 [TradingView 공식 위젯](https://www.tradingview.com/widget-docs/widgets/charts/advanced-chart/)으로 제공한다. 위젯에는 종목, 테마 등 공개 차트 설정만 전달한다. 엔진의 SMA·완충 폭·신호와 실제 주문·체결은 별도 패널과 표에서 제공하며 위젯에 덧그리거나 데이터를 추출하지 않는다. TradingView의 표시와 출처 링크를 유지한다.
 
@@ -32,6 +31,6 @@
 
 ## ECS 배포 보안 경계
 
-Dashboard Task Role은 전용 read API Secret에만 GetSecretValue를 갖는다. Execution Role은 지정 로그 전송과 cloudflared 터널 토큰 주입을 담당한다. 웹 로그인용 Secret은 필요 없다. DB와 브로커의 자격 증명, DB 직접 접근과 자원 관리 권한은 Dashboard에 부여하지 않는다.
+Dashboard Task Role은 전용 read API Secret에만 GetSecretValue를 갖는다. Execution Role은 지정 로그 전송과 cloudflared 터널 토큰 주입을 담당한다. DB와 메리츠 Open API의 자격 증명, DB 직접 접근과 자원 관리 권한은 Dashboard에 부여하지 않는다.
 
-엔진 API는 내부 네트워크에 유지하고 Next.js 서버에서 인증하여 조회한다. TLS를 기본으로 사용한다. `vpc-http`는 제한 네트워크에서만 명시적으로 선택하는 전송 모드다. 내부 HTTP는 평문이므로 DNS와 Security Group을 포함한 경계를 별도로 검증한다. 실제 배포와 연결 검증은 [검증 문서](VALIDATION.md)의 범위를 따른다.
+엔진 API는 내부 네트워크에 유지하고 Next.js 서버에서 인증하여 조회한다. TLS를 기본으로 사용한다. `vpc-http`는 제한 네트워크에서만 명시적으로 선택하는 전송 모드다. 내부 HTTP는 평문이므로 DNS와 Security Group을 포함한 경계를 별도로 검증한다. 설정과 배포 후 확인 항목은 [배포 문서](DEPLOYMENT.md)를 따른다.

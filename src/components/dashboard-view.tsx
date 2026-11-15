@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { overview, records, readResource } from "@/lib/server/engine";
 import { SummaryCards } from "@/components/summary-cards";
+import { StrategyReference } from "@/components/strategy-reference";
 import { StrategyPanel } from "@/components/strategy-panel";
 import { PriceChart } from "@/components/price-chart";
 import { TradeTable } from "@/components/trade-table";
@@ -64,13 +65,13 @@ export async function DashboardView({ segments }: { segments: string[] }) {
       }
     } else if (section === "trades") content = <><TradeTable items={orders} base={base} truncated={ordersResult.truncated} /><DataState result={ordersResult} name="주문" /><p className="footnote">주문 생성 시각은 체결 시각과 다릅니다. 상세 화면에서 개별 체결 시각과 이벤트를 확인하세요.</p></>;
     else content = <><SummaryCards data={data} compact /><Link className="text-link" href={`${base}/portfolio`}>자산 및 손익 상세 ↗</Link>
-      <div className="page-sections"><PriceChart preview />
+      <div className="page-sections"><StrategyReference data={data} /><PriceChart preview />
       <div className="preview-links"><Link className="text-link" href={`${base}/market`}>시세 차트 상세 ↗</Link><Link className="text-link" href={`${base}/strategy`}>현재 추세: {status?.assessment?.trend ? label(status.assessment.trend.reason) : status?.assessment?.status === "evaluated" ? "신규 신호 없음" : "미제공"} / 전략 상세 ↗</Link></div>
       <TradeTable items={orders} base={base} compact /><DataState result={ordersResult} name="최근 주문" /></div></>;
 
   }
   return <div className="dashboard-page">
-    <header className="page-heading"><div><p className="eyebrow">{section ? section.toUpperCase() : "DASHBOARD"}</p><h1>{title}</h1><p>신호와 실행을 구분하고, 계좌의 흐름을 확인합니다.</p></div><RefreshControl /></header>
+    <header className="page-heading"><div><p className="eyebrow">{section ? section.toUpperCase() : "DASHBOARD"}</p><h1>{title}</h1><p>메리츠증권 Open API와 Super365 계좌로 운용하는 QQQ SMA200 기반 TQQQ·SPYM 자동매매 대시보드입니다.</p></div><RefreshControl /></header>
     <div className="engine-strip"><span className={`engine-indicator${data.status.error || stale ? " is-unknown" : ""}`}><span className="status-dot" />{data.status.error ? "상태 확인 불가" : `${status?.mode.toUpperCase() ?? "—"}${stale ? " / 관측 오래됨" : ""}`}</span><span>{status?.mode === "pause" ? "관찰 중 / 주문 비활성" : status ? `주문 ${status.orders_enabled ? "활성" : "비활성"}` : "엔진 연결을 확인하세요"}</span><span className="strip-divider" /><span>전략 <b>v{status?.strategy_version ?? "—"}</b></span><span className="strip-time">마지막 데이터 갱신 {time(data.status.error ? null : data.status.fetchedAt)} KST</span><Link className="text-link" href={`${base}/engine`}>엔진 상세 ↗</Link></div>
     <DataState result={data.status} name="엔진" />{data.status.error && <p className="notice">현재 상태를 확인할 수 없습니다. 이전 정상 상태를 표시하지 않습니다.</p>}{content}
   </div>;

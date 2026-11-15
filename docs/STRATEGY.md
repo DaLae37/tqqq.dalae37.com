@@ -1,6 +1,6 @@
-# TQQQ 200d MA Strategy Dashboard 전략 설명
+# 200TQQQ 전략 설명
 
-거래 엔진의 [전략 기준 명세 1.3](https://github.com/DaLae37/tqqq.dalae37.com-engine/blob/main/docs/STRATEGY.md), `policies.py`, `repository.py`, `engine.py`의 구현을 기준으로 한다. 확인한 명세의 Git blob은 `718c5b55df8a64c78ac037422e8bda5ff4f21e35`다. 아래 기본 규칙에서 문서와 구현의 충돌은 발견하지 않았다. 실제 설정과 현재 상태는 엔진 API를 따른다.
+거래 엔진의 [전략 기준 명세 1.3](https://github.com/DaLae37/tqqq.dalae37.com-engine/blob/main/docs/STRATEGY.md), `policies.py`, `repository.py`, `engine.py`의 구현을 기준으로 한다. 실제 설정과 현재 상태는 엔진 API를 따른다.
 
 ## 종목과 기준 가격
 
@@ -60,3 +60,5 @@ SPYM은 장기 보유한다. 연말 전체 손익·외부 손익·비용·환율
 QQQ 종가·SMA·매수/매도 기준선은 같은 평가에 보존된 근거로만 패널에 함께 표시한다. TradingView 차트에 해당 값을 덧그리거나 위젯 시세로 과거 판단값을 재구성하지 않는다.
 
 API의 현재 평가 응답은 실행 모드와 신호 유무에 따라 QQQ 가격·SMA·완충 폭을 생략할 수 있다. 없는 값은 미제공으로 표시한다. 현재 완충 폭을 과거 SMA에 적용하거나 미제공 SMA를 브라우저에서 추정하지 않는다. 시세 차트는 TradingView가 제공하며 엔진 평가 시점과 별도로 표시한다.
+
+SMA200 판단 근거의 수신 조건과 현재 평가·신호 당시 값의 구분은 [API 연동 문서](API_INTEGRATION.md)를 따른다.

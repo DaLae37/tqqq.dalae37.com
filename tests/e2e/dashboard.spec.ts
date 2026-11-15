@@ -62,11 +62,14 @@ for (const width of [1440, 390]) {
     const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("/");
     await expect(page.getByTitle("TQQQ 시세 — TradingView 공식 위젯")).toBeVisible();
-    await expect(page).toHaveTitle("tqqq");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("TQQQ 200d MA Strategy Dashboard");
+    await expect(page).toHaveTitle("200TQQQ");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("200TQQQ");
     await expect(page.locator(".site-header")).not.toContainText("TQQQ 200d MA Strategy Dashboard");
     await expect(page.locator("body")).not.toContainText("READ ONLY");
-    await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "tqqq");
+    await expect(page.locator("meta[property='og:title']")).toHaveAttribute("content", "200TQQQ");
+    await expect(page.locator(".site-header .brand")).toHaveText("200TQQQ메리츠증권 Open API · Super365");
+    await expect(page.getByRole("heading", { name: "200일선 매매 판단" })).toBeVisible();
+    await expect(page.locator(".strategy-reference")).toContainText("엔진에서 확정 종가와 SMA200 판단값을 아직 제공하지 않았습니다.");
     await expect(page.locator(".summary-card")).toHaveCount(3);
     await expect(page.locator(".chart-toolbar, .table-filters, .strategy-panel, .demo-banner")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

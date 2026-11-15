@@ -8,6 +8,11 @@ test("public BFF reads the authenticated engine on the server and strips credent
   expect(response.headers()["www-authenticate"]).toBeUndefined();
   expect(await response.json()).toMatchObject({ source: "engine", data: { mode: "pause" } });
   expect(await response.text()).not.toContain("synthetic-e2e-engine-secret");
+  for (const resource of ["live", "ready"]) {
+    const health = await request.get(`/api/dashboard/${resource}`);
+    expect(health.status()).toBe(200);
+    expect(await health.json()).toMatchObject({ source: "engine", data: { ok: true } });
+  }
   const orders = await request.get("/api/dashboard/orders");
   expect(orders.status()).toBe(200);
   expect((await orders.json()).data.items).toHaveLength(24);
@@ -16,10 +21,14 @@ test("public BFF reads the authenticated engine on the server and strips credent
 test("public summary and portfolio retain actual upstream values without demo labels", async ({ page }) => {
   await page.route("https://s3.tradingview.com/**", (route) => route.abort());
   await page.goto("/");
+  await expect(page.locator(".strategy-reference")).toContainText("QQQ 종가 > 520.2 USD");
+  await expect(page.locator(".strategy-reference")).toContainText("QQQ 종가 < 499.8 USD");
+  await expect(page.locator(".strategy-reference")).toContainText("510 USD");
   await expect(page.locator(".summary-card")).toHaveCount(3);
   await expect(page.locator("tbody tr")).toHaveCount(5);
   await expect(page.locator(".summary-grid")).toContainText("8,023.76");
   await expect(page.locator(".demo-banner")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/strategy-reference-engine.png", fullPage: true });
   await page.goto("/portfolio");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("보유 현황");
   await expect(page.locator(".data-error")).toHaveCount(0);

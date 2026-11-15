@@ -1,4 +1,4 @@
-# TQQQ 200d MA Strategy Dashboard 배포
+# 200TQQQ 개발과 배포
 
 Dashboard와 cloudflared를 함께 실행하는 ECS Fargate 템플릿과 선택형 Compose, Nginx 예시를 제공한다. 템플릿은 실제 자원과 연결되지 않은 예시이며 AWS 자원 생성과 배포는 별도로 수행한다. Dashboard는 DB에 직접 연결하지 않는다.
 
@@ -6,7 +6,7 @@ Dashboard와 cloudflared를 함께 실행하는 ECS Fargate 템플릿과 선택�
 
 주소, 자원 ID, ARN과 자격 증명은 실행 환경에서 주입한다. 공개 저장소에는 `.env.example`의 공란과 배포 예시의 `REPLACE_*`만 저장한다. 실제 값으로 치환한 설정과 인증정보는 Git과 Docker 빌드 context에 포함하지 않는다.
 
-ECS 예시는 엔진 연결에 필요한 설정 항목을 보여 주며, `.env.example`과 Docker 이미지의 기본값은 `DATA_ADAPTER=disabled`다. 로그인 없이 실제 조회 결과를 공개하며, 설정이 없으면 미연결 상태를 표시한다. demo 경로는 제공하지 않는다.
+ECS 예시는 엔진 연결에 필요한 설정 항목을 보여 주며, `.env.example`과 Docker 이미지의 기본값은 `DATA_ADAPTER=disabled`다. 로그인 없이 실제 조회 결과를 공개하며, 설정이 없으면 미연결 상태를 표시한다.
 
 ## Task와 Service 템플릿
 
@@ -14,7 +14,7 @@ ECS 예시는 엔진 연결에 필요한 설정 항목을 보여 주며, `.env.e
 |---|---|
 | deploy/ecs/task-definition.example.json | Dashboard와 cloudflared를 포함한 Task |
 | deploy/ecs/service.example.json | Dashboard Service |
-| deploy/ecs/discovery-service.example.json | Cloud Map A 레코드 설정 예시 |
+| deploy/ecs/discovery-service.example.json | Dashboard용 Cloud Map A 레코드 설정 예시 |
 | deploy/ecs/task-role-trust-policy.example.json | ECS Task 신뢰 정책 |
 | deploy/ecs/task-role-policy.example.json | 애플리케이션의 read API Secret 조회 |
 | deploy/ecs/execution-role-policy.example.json | 로그 전송, 터널 토큰 Secret 주입 |
@@ -25,6 +25,8 @@ ECS 예시는 엔진 연결에 필요한 설정 항목을 보여 주며, `.env.e
 컨테이너는 standalone server.js를 node 사용자로 직접 실행한다. ECS initProcessEnabled와 stopTimeout=30을 설정하고 SIGTERM을 Node로 전달한다. Health Check는 `/healthz`의 서비스명과 정상 응답을 검사한다. 엔진 장애를 Dashboard liveness 실패로 연결하지 않는다.
 
 Service는 Dashboard용 Task Definition, Task/Execution Role과 Security Group을 사용한다. rolling 100/200과 circuit breaker rollback을 설정한다. 교체 중에는 Dashboard가 일시적으로 2개일 수 있다. 메모리 캐시와 요청 제한은 프로세스별로 적용된다. 다중 인스턴스에서는 프록시의 공유 요청 제한도 구성한다.
+
+현재 Service 예시와 오프라인 검사는 Dashboard의 Cloud Map 등록을 전제로 한다. 같은 Task의 cloudflared만으로 접근하는 구성에는 Dashboard용 DNS 등록이 필요하지 않다. 이 경우 예시의 `serviceRegistries`와 오프라인 검사 조건을 구성에 맞게 조정한다. 엔진의 내부 DNS 등록과는 별개다.
 
 ## 환경변수와 Secret
 
@@ -39,12 +41,9 @@ Service는 Dashboard용 Task Definition, Task/Execution Role과 Security Group�
 | ENGINE_PRIVATE_DNS_SUFFIX | 제한된 내부 HTTP를 선택한 경우의 호스트 검증 조건 |
 | ENGINE_READ_API_TOKEN_SECRET_ARN | 전용 read API 토큰 Secret ARN |
 
-운영에서 ENGINE_READ_API_TOKEN 평문 환경변수는 사용하지 않는다. 애플리케이션은 SDK 기본 자격 증명 체인의 Task Role로 Secrets Manager AWSCURRENT의 token 필드를 읽는다. 60초 메모리 캐시, 동시 요청 병합, 3초 조회 타임아웃을 적용한다. 만료 후 조회 실패 시 이전 토큰을 제공하지 않는다. 엔진 401/403은 캐시를 비우며 다음 조회에서 새 값을 읽는다. Secret 값과 SDK 예외는 로그나 브라우저로 출력하지 않는다.
+운영에서는 ENGINE_READ_API_TOKEN 평문 환경변수 대신 Secrets Manager의 JSON 객체 `token` 필드를 사용한다. Task Role은 전용 read API Secret의 GetSecretValue만 갖는다. Execution Role은 지정 로그 전송과 cloudflared 터널 토큰 주입을 담당한다. DB와 메리츠 Open API의 자격 증명이나 관리 권한은 Dashboard에 부여하지 않는다. 인증과 토큰 캐시 기준은 [API 연동 문서](API_INTEGRATION.md)를 따른다.
 
-
-Task Role은 전용 read API Secret의 GetSecretValue만 갖는다. Execution Role은 지정 로그 전송과 cloudflared 터널 토큰 주입을 담당한다. 실제 ARN, 계정 ID와 Secret 값은 외부 설정에만 둔다. DB와 브로커의 자격 증명이나 관리 권한은 Dashboard에 부여하지 않는다.
-
-웹 ID/PW와 로그인용 Secret은 사용하지 않는다. TradingView 위젯은 브라우저에서 공식 스크립트와 프레임을 불러오며 별도 API 키가 필요하지 않다. 엔진 read API 토큰과 Cloudflare Tunnel 토큰은 기존처럼 서버 실행 환경에 유지한다.
+TradingView 위젯은 브라우저에서 공식 스크립트와 프레임을 불러오며 별도 API 키가 필요하지 않다.
 
 ## 네트워크와 HTTP 보안 경계
 
@@ -54,6 +53,8 @@ Task Role은 전용 read API Secret의 GetSecretValue만 갖는다. Execution Ro
 
 배포 예시의 네트워크 항목은 사용 환경에 맞게 설정한다. 공개 IP와 고정 Task IP를 엔진 연결 주소로 저장하지 않으며, 실제 DNS 이름과 네트워크 식별자를 채운 파일은 공개 저장소에서 제외한다.
 
+엔진은 같은 VPC의 별도 Fargate Service로 유지한다. Cloud Map을 사용한다면 실행 중인 엔진 Service가 해당 서비스 레지스트리에 연결되어 실제 Task IP를 등록해야 한다. Dashboard는 이 사설 DNS 이름으로 조회한다. Dashboard Security Group의 outbound와 Engine Security Group의 inbound에 TCP 8080을 서로의 Security Group 기준으로 허용한다. 엔진 API와 DB를 인터넷에 개방하지 않는다.
+
 ## Cloudflare Tunnel 컨테이너
 
 ECS Task에 `dashboard`와 `cloudflared`를 함께 실행한다. 엔진은 기존 별도 Task로 유지한다. `cloudflared`는 Dashboard의 `/healthz`가 정상인 뒤 시작하며, 필수 컨테이너로 지정하여 종료 시 ECS Service가 Task를 교체할 수 있도록 한다. 시작 의존성은 터널의 외부 연결 상태를 지속적으로 검사하는 기능이 아니다.
@@ -62,7 +63,7 @@ Cloudflare의 원격 관리 터널에서 공개 호스트 `tqqq.dalae37.com`의 
 
 `REPLACE_CLOUDFLARE_TUNNEL_TOKEN_SECRET_ARN`에는 터널 토큰 문자열 전체를 저장한 Secrets Manager Secret ARN을 넣는다. ECS가 이를 `TUNNEL_TOKEN`으로 주입한다. JSON 형식 Secret을 사용한다면 해당 키를 선택하는 Secret 참조로 바꾼다. 명령행과 일반 environment에 토큰을 기록하지 않는다. Execution Role에 이 Secret의 `secretsmanager:GetSecretValue`를 허용하며 Task Role의 권한은 확장하지 않는다. 고객 관리 KMS 키를 사용하면 해당 키 복호화 권한도 별도로 확인한다.
 
-cloudflared는 공식 공개 이미지 `cloudflare/cloudflared:latest`를 사용한다. 운영 버전을 고정할 때는 검증한 ARM64 지원 태그나 digest로 바꾼다. 컨테이너 업데이트는 ECS의 새 Task 교체로 적용한다. Dashboard용 IAM·로그 설정과 같이 실제 Secret ARN을 채운 파일은 공개 저장소에서 제외한다.
+cloudflared 예시는 공식 공개 이미지 `cloudflare/cloudflared:latest`를 사용한다. 운영 버전을 고정할 때는 검증한 ARM64 지원 태그나 digest로 바꾼다. 컨테이너 업데이트는 ECS의 새 Task 교체로 적용한다.
 
 터널 컨테이너에는 inbound 포트 매핑이 없다. 터널 전용 진입이면 Dashboard 3000번도 인터넷에 개방할 필요가 없다. 기존 이미지/로그/Secret 조회용 HTTPS·DNS 경로와 함께 Cloudflare Tunnel 목적지에 outbound TCP/UDP 7844를 허용한다. 기존 Public IP 설정은 아웃바운드 경로이며 inbound 공개를 의미하지 않는다. Dashboard는 로그인 없이 공개한다. no-store 정책을 유지하고 Cloudflare에서도 데이터 페이지와 BFF를 캐시하지 않는다.
 
@@ -107,14 +108,29 @@ aws ecs wait services-stable --region "$AWS_REGION" \
   --cluster "$ECS_CLUSTER" --services "$DASHBOARD_SERVICE"
 ```
 
-services-stable만으로 앱 정상이라고 판단하지 않는다. Task Health Check, `/healthz`, 로그인 없는 메인·상세 페이지와 `/dashboard`, 공개 BFF, 제거된 demo의 404, read 토큰 오류, 엔진 연결 실패와 로그의 비밀값 비노출을 확인한다. rollback은 Dashboard의 검증된 이전 revision을 사용한다.
+배포 후 다음 항목을 확인한다. rollback은 Dashboard의 검증된 이전 revision을 사용한다.
+
+- Task Health Check와 `/healthz`의 정상 응답
+- Cloudflare Tunnel 연결과 공개 호스트의 HTTPS 접근
+- 엔진 사설 DNS 등록, Security Group과 read API 인증
+- 메인·상세 페이지와 공개 BFF의 실제 조회 결과
+- 조회 실패와 미제공 표시, 응답의 no-store와 로그의 비밀값 비노출
 
 ## 로컬 개발과 검증
 
-Node 26.13.0, npm 11.20.0을 사용한다. `npm ci` 후 `npm run dev`로 loopback `/`에서 화면을 확인한다. 엔진 연결 설정이 없으면 값은 미제공으로 표시하며 TradingView 차트는 별도로 불러온다. 브라우저 테스트는 격리된 테스트 엔진·Secret 응답을 사용하고 실제 계좌에 연결하지 않는다.
+Node 26.13.0, npm 11.20.0을 사용한다. 아래 명령으로 개발 서버를 실행한다.
 
 ```bash
 npm ci --no-audit --no-fund
+cp .env.example .env.local
+npm run dev
+```
+
+`http://127.0.0.1:3000`에서 화면을 확인한다. 실제 엔진 연결은 `.env.local`에 설정하며 이 파일은 커밋하지 않는다. 연결 설정이 없으면 값은 미제공으로 표시하고 TradingView 차트는 별도로 불러온다.
+
+타입·단위·빌드·브라우저 검증 명령은 다음과 같다. 브라우저 테스트는 격리된 테스트 엔진·Secret 응답을 사용하며 실제 계좌에 연결하지 않는다.
+
+```bash
 npx next typegen
 npm run typecheck
 npm test
@@ -124,4 +140,4 @@ npm run test:e2e
 node scripts/verify-client-bundle.mjs
 ```
 
-Docker 이미지 빌드, 비루트 실행, `/healthz` HTTP 응답과 SIGTERM 종료는 컨테이너 실행 환경에서 별도로 확인한다. 검증 결과와 미검증 범위는 [검증 문서](VALIDATION.md)를 따른다.
+Docker 이미지는 `docker build -t tqqq-dashboard .`로 빌드한다. Dockerfile은 타입 검사, 단위 테스트와 Next.js standalone 빌드를 실행한다. 컨테이너 실행 환경에서는 비루트 실행, `/healthz` 응답과 SIGTERM 종료를 별도로 확인한다. 로컬 테스트 통과가 실제 AWS·엔진 연결 검증을 의미하지 않는다.

@@ -1,2 +1,2 @@
-export const siteName = "TQQQ 200d MA Strategy Dashboard";
-export const siteTitle = "tqqq";
+export const siteName = "200TQQQ";
+export const siteTitle = siteName;

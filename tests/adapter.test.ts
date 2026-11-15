@@ -60,3 +60,47 @@ test("failures return no previous healthy data and never fall back to mock", asy
     assert.equal(JSON.stringify(disconnected).includes("private connection detail"), false);
   } finally { globalThis.fetch = original; }
 });
+
+test("health probes remain available without a read-token Secret", async () => {
+  const previousMode = process.env.NODE_ENV;
+  const original = globalThis.fetch;
+  Object.assign(process.env, { NODE_ENV: "production" });
+  delete process.env.ENGINE_READ_API_TOKEN_SECRET_ARN;
+  globalThis.fetch = async (input, init) => {
+    assert.ok(["/health/live", "/health/ready"].includes(new URL(String(input)).pathname));
+    assert.equal((init?.headers as Record<string, string>).Authorization, undefined);
+    return Response.json({ ok: true });
+  };
+  try {
+    assert.equal((await readResource("live")).data?.ok, true);
+    assert.equal((await readResource("ready")).data?.ok, true);
+    assert.equal((await readResource("status")).error, "not_configured");
+  } finally { globalThis.fetch = original; Object.assign(process.env, { NODE_ENV: previousMode }); }
+});
+
+test("network diagnostics distinguish causes and never log exception details", async () => {
+  const original = globalThis.fetch, warn = console.warn;
+  const logs: string[] = [];
+  console.warn = (message: string) => logs.push(message);
+  try {
+    for (const [error, expected] of [
+      [new TypeError("private-host-and-token", { cause: { code: "ENOTFOUND" } }), "dns_lookup_failed"],
+      [new TypeError("private-host-and-token", { cause: { code: "EAI_AGAIN" } }), "dns_lookup_failed"],
+      [new TypeError("private-host-and-token", { cause: new AggregateError([{ code: "ECONNREFUSED" }]) }), "connection_refused"],
+      [new TypeError("private-host-and-token", { cause: { code: "UND_ERR_CONNECT_TIMEOUT" } }), "connection_timeout"],
+      [{ name: "TimeoutError", message: "private-host-and-token" }, "connection_timeout"],
+      [{ code: "unknown-private-value", message: "private-host-and-token" }, "request_failed"],
+    ] as const) {
+      globalThis.fetch = async () => { throw error; };
+      assert.equal((await readResource("live")).error, "unavailable");
+      assert.deepEqual(JSON.parse(logs.at(-1)!), { event: "engine_read_failed", resource: "live", stage: "request", code: expected });
+    }
+    globalThis.fetch = async () => new Response("private invalid payload");
+    assert.equal((await readResource("live")).error, "invalid_response");
+    assert.equal(JSON.parse(logs.at(-1)!).code, "invalid_json");
+    globalThis.fetch = async () => Response.json({ error: "private response body" }, { status: 502 });
+    assert.equal((await readResource("live")).error, "unavailable");
+    assert.deepEqual(JSON.parse(logs.at(-1)!), { event: "engine_read_failed", resource: "live", stage: "response", code: "http_error", http_status: 502 });
+    assert.doesNotMatch(logs.join("\n"), /private|https?:|Bearer|unknown-private-value/);
+  } finally { globalThis.fetch = original; console.warn = warn; }
+});

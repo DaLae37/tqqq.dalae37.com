@@ -54,6 +54,11 @@ const fixtures: Record<Resource, unknown> = {
     live_trading_enabled: false, execution_adapter_available: true, live_profile_configured: true,
     migration_in_progress: false, last_error: null, last_start_error: null, tax_status: "not_evaluated",
     assessment: { status: "evaluated", session: "REGULAR", close_count: 200, signals_persisted: false,
+      // Proposed read-only snapshot, exercised only in isolated tests.
+      trend_reference: { status: "ready", reason: null, signal_symbol: "QQQ", trade_symbol: "TQQQ",
+        evaluated_at: mockAt, source_day: "2026-11-12", sma_period: 200, close_count: 200, close_confirmed: true,
+        close: "530.1200000000", sma_value: "510.0000000000", buy_buffer: "0.02", sell_buffer: "0.02",
+        buy_threshold: "520.2000000000", sell_threshold: "499.8000000000" },
       trend: null, take_profit: null, trend_buffer: { buy: "0.02", sell: "0.02", steps: 1, expires_at: "2026-11-30T15:00:00Z" },
       funding: { mode: "INTEGRATED_MARGIN", cash: "1420.5000000000", settled_cash: "1200.0000000000", orderable: "3200.0000000000" } },
   },

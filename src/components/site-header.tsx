@@ -12,6 +12,7 @@ export function SiteHeader() {
   const current = pathname.replace(/^\/dashboard(?=\/|$)/, "").replace(/^\/orders/, "/trades").replace(/^\/health/, "/engine") || "/";
   return <header className="site-header">
     <div className="header-inner">
+      <Link className="brand" href="/" aria-label={`${siteTitle} — Dashboard`}><span className="brand-name">{siteTitle}</span><span className="brand-description">메리츠증권 Open API · Super365</span></Link>
       <div className="header-links"><a href="https://github.com/DaLae37/tqqq.dalae37.com" target="_blank" rel="noreferrer">GitHub ↗</a></div>
     </div>
     <nav className="main-nav" aria-label={`${siteTitle} 주 메뉴`}>
