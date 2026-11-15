@@ -1,6 +1,5 @@
 :root {
   --bg: #fff;
-  --page-bg: #fff;
   --content-bg: #eceef4;
   --surface: #fff;
   --text: #1f2428;
@@ -20,7 +19,6 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0e1015;
-    --page-bg: var(--content-bg);
     --content-bg: #14171e;
     --surface: #1c2029;
     --text: #f0f1f5;
@@ -58,7 +56,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .main-nav a { padding: .875rem .25rem 1rem; color: var(--muted); border-bottom: 2px solid transparent; font-size: 1rem; }
 .main-nav a:hover, .text-link:hover { color: var(--accent); }
 .main-nav a[data-active] { color: var(--accent); border-color: var(--accent); font-weight: 700; }
-.site-main { flex: 1; min-width: 0; background: var(--page-bg); border: 1px solid var(--line); border-radius: .875rem; }
+.site-main { flex: 1; min-width: 0; background: var(--content-bg); border: 1px solid var(--line); border-radius: .875rem; }
 .dashboard-page { padding: 1.75rem 2rem 2rem; }
 .page-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
 .eyebrow { margin: 0 0 .35rem; color: var(--muted); font-size: .625rem; font-weight: 700; letter-spacing: .15em; }

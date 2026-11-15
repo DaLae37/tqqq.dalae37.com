@@ -44,6 +44,6 @@ cloudflared는 Dashboard와 같은 Fargate Task에서 localhost:3000으로 연�
 
 메인은 엔진 상태, 세 개의 요약 카드, QQQ SMA200 매매 판단, TQQQ 시세 미리보기와 최근 거래 5건을 표시한다. 전체 거래 이력, 필터, 세무 원장과 오류 상세는 상세 화면에서 제공한다.
 
-색 조합은 [세이브티커 뉴스](https://www.saveticker.com/news)를 참고한다. Light는 [네이버 증권](https://stock.naver.com/)처럼 흰 배경을 사용하고 짙은 회색 텍스트와 청보라색으로 강조한다. Dark는 차콜 배경과 밝은 청보라색을 사용한다. 색상과 여백은 `src/app/globals.css`에서 관리한다. 내비게이션과 표는 모바일 화면에서도 사용할 수 있도록 구성한다.
+색 조합은 [세이브티커 뉴스](https://www.saveticker.com/news)를 참고한다. Light는 [네이버 증권](https://stock.naver.com/)처럼 바깥 배경은 흰색으로 두고 본문은 밝은 회색, 카드는 흰색을 사용한다. 짙은 회색 텍스트와 청보라색으로 강조하며 Dark는 차콜 배경과 밝은 청보라색을 사용한다. 색상과 여백은 `src/app/globals.css`에서 관리한다. 내비게이션과 표는 모바일 화면에서도 사용할 수 있도록 구성한다.
 
 TradingView 위젯은 사이트의 Light/Dark 설정을 따르며 Market의 기본 종목은 TQQQ다. 엔진의 판단값과 실제 거래는 별도 패널과 표에 표시한다. 위젯 로딩 실패 시 안내와 다시 불러오기, TradingView 원문 링크를 제공하며 합성 시세로 대체하지 않는다.
