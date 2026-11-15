@@ -6,7 +6,7 @@ Next.js 서버가 엔진의 조회 API를 호출하고 허용된 응답 필드�
 
 | 엔진 GET 경로 | 사용처 |
 |---|---|
-| /v1/status | 모드, 연결, 실거래 설정, 전략 판단, 진단 |
+| /v1/status | 메모리에 보존한 모드, 연결, 전략 판단, 모듈 상태와 진단 |
 | /v1/portfolio | 장부 수량, 사이클, 예산, 계좌 스냅샷 |
 | /v1/signals | QQQ 신호와 주문 연결 |
 | /v1/orders | 주문 테이블과 상세 |
@@ -17,14 +17,14 @@ Next.js 서버가 엔진의 조회 API를 호출하고 허용된 응답 필드�
 | /v1/tax-ledger | 최근 세무 원장 최대 200건 |
 | /v1/annual-pnl | 연도별 메리츠 검증 손익과 외부 손익 반영 여부 |
 | /v1/strategy-versions | 현재 버전에 맞는 설정 스냅샷 |
-| /health/live | 프로세스와 루프 생존 |
-| /health/ready | DB/API/schema 연결 준비 |
+| /health/live | HTTP 프로세스 생존. 거래 루프·메리츠·DB 점검과 구분 |
+| /health/ready | 읽기 API의 토큰·조회 DB·스키마 준비 점검 캐시 |
 
 브라우저의 대응 경로는 `/api/dashboard/<resource>`다. `live`, `ready`는 엔진의 `/health/*`로만 변환한다. 경로는 고정 목록으로 제한한다. `limit=1..200`, `offset=0..100000` 이외 조회 파라미터는 허용하지 않는다. `/api/dashboard/overview`, `/api/dashboard/trades`는 BFF의 화면용 조회다. 시세 조회 API는 제공하지 않으며 차트는 TradingView 공식 위젯에서 제공한다.
 
 ## 응답 기준
 
-- readiness는 주문 가능 여부와 구분한다. 주문 가능 여부는 orders_enabled와 관련 설정, reason을 별도로 본다.
+- 읽기 API readiness, 거래 DB·메리츠 연결과 주문 가능 여부는 서로 구분한다. 주문 가능 여부는 orders_enabled, reason과 거래 모듈 상태를 별도로 본다.
 - 전략 버전 응답의 `strategy_version_id`, `version`을 BFF에서 UI 이름인 `version_id`, `strategy_version`으로 명시적으로 변환한다.
 - 주문의 id/status/quantity 등 계약 필드를 검증하여 사용한다.
 - 금액은 문자열, UTC 시각은 timezone이 포함된 문자열, 거래일은 미국 현지 날짜다. 과거 필드의 null은 0이 아니다.
@@ -42,6 +42,19 @@ Next.js 서버가 엔진의 조회 API를 호출하고 허용된 응답 필드�
 
 ## 조회 범위
 
+화면은 필요한 리소스만 조회하며 readiness를 다른 조회의 선행 조건으로 사용하지 않는다. 각 요청의 오류는 해당 결과에만 반영한다. 메리츠 장애로 주문이 차단돼도 조회 DB가 정상이라면 이력·자산 조회를 유지하며, 조회 DB 오류가 나도 메모리 상태와 liveness는 별도로 확인한다.
+
+| 화면 | 조회 리소스 |
+|---|---|
+| Dashboard | status, portfolio, strategy-versions, annual-pnl, orders |
+| Strategy | status, portfolio, strategy-versions |
+| Market | status. 시세는 TradingView 공식 위젯 |
+| Trades | status, orders. 상세는 order-events와 signals 추가 |
+| Portfolio | status, portfolio, annual-pnl, tax-ledger |
+| Engine | status, live, ready. 자산·이력 DB 조회 없음 |
+
+`/api/dashboard/overview`는 기존 전체 조회 계약을 유지한다. status·portfolio·annual-pnl과 health 요청에는 페이지 파라미터를 보내지 않는다.
+
 주문, 신호, 이벤트, 전략 버전은 200건씩 최대 2,000건 조회한다. 범위를 넘으면 화면에 제한을 표시한다. 테이블 정렬, 기간, 종목, 상태 필터와 페이지네이션은 로드된 주문 범위 전체에 적용한다. 이벤트가 독립적으로 제한되므로 오래된 주문의 모든 이벤트가 포함된다고 보장하지 않는다. 거래 상세도 같은 주문 범위다.
 
 현재 계약은 서버 필터, 전체 건수, 주문 ID별 이벤트 조회, 일관된 snapshot cursor를 제공하지 않는다. 전체 이력 검색을 제공하려면 별도의 읽기 API 계약이 필요하다. BFF의 원본 페이지 경로는 명시적인 offset 조회를 지원하며 대시보드 조회량은 위 범위로 제한한다. 페이지별 관측 시각도 단일 snapshot을 의미하지 않는다.
@@ -56,7 +69,7 @@ Next.js 서버가 엔진의 조회 API를 호출하고 허용된 응답 필드�
 
 ## SMA200 매매 판단
 
-웹은 `/v1/status`의 선택 필드 `assessment.trend_reference`를 수신한다. 엔진 버전과 응답에 따라 생략될 수 있으며, 아래 계약의 웹 수신 지원이 엔진 배포 완료를 의미하지 않는다.
+웹은 `/v1/status`의 `assessment.trend_reference`를 수신한다. 엔진의 [Change Modularity](https://github.com/DaLae37/tqqq.dalae37.com-engine/commit/424e0bade4711a87ab227c58bb5e1b91f4726c40) 구현과 조회 계약을 기준으로 하며 이전 버전이나 최초 평가 전에는 생략될 수 있다. 실제 배포 버전과 응답은 실행 환경에서 확인한다.
 
 | 필드 | 형식과 의미 |
 |---|---|
@@ -76,6 +89,14 @@ Next.js 서버가 엔진의 조회 API를 호출하고 허용된 응답 필드�
 이 필드가 생략된 경우에만 기존 `assessment.trend`의 신호 근거를 확인한다. 활성 전략 버전과 신호 버전이 같고 SMA 기간이 200일이며 유효 가격과 평가 시각이 있을 때, 해당 신호의 SMA와 완충 폭으로 기준선을 표시한다. 이를 현재의 다음 매매 가격과 구분하여 신호 당시 값으로 안내한다.
 
 unavailable 또는 불완전한 스냅샷은 과거 신호로 대체하지 않는다. 현재 완충 폭을 과거 SMA에 적용하거나 TradingView 시세로 누락값을 추정하지 않는다. 현재 완충 폭은 `assessment.trend_buffer`, 익절 조건은 활성 전략 버전의 `config_snapshot`, 완료·실행 불가 단계는 사이클의 `completed`·`unavailable`을 사용한다.
+
+## 엔진 모듈 상태
+
+status의 최상위 `modules`는 현재 모듈 상태이고 `assessment.modules`는 마지막 worker 평가 시점의 상태다. Engine 화면은 최상위 값을 사용한다. runtime, migration, db, schema, broker, execution_lease, decision, order_management, orders, history, tax, read_api의 제공된 항목만 표시한다.
+
+각 모듈의 status는 idle(대기), ready(정상), blocked(차단), error(오류)다. reason, blocked_by, last_check_at, last_success와 허용된 last_error_details를 함께 표시한다. 없는 모듈을 정상으로 만들지 않으며 마지막 성공 시각도 현재 정상 상태로 해석하지 않는다. mode=start는 실행 의도이며 모든 모듈의 성공을 뜻하지 않는다.
+
+`api_health_checked`와 `api_health_checked_at`은 실제 메리츠 점검 여부·시각이다. 첫 점검 전 상태와 점검 생략을 오류로 간주하지 않는다. `consecutive_api_failures`는 실제 연속 실패 횟수다. 거래 연결의 `health_error_details`와 마지막 거래 루프의 `last_worker_error_details`는 읽기 API 준비 상태와 구분한다. 진단은 stage/code, 응답 코드와 HTTP·AWS 오류 코드만 허용하며 원본 예외·payload를 전달하지 않는다.
 
 ## 자산과 손익
 

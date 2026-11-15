@@ -1,5 +1,5 @@
-import { siteName } from "@/lib/site";
 import { StrategyGuide } from "@/components/strategy-guide";
+import { StatusBadge, modeTone } from "@/components/status-badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { overview, records, readResource } from "@/lib/server/engine";
@@ -19,9 +19,22 @@ export async function DashboardView({ segments }: { segments: string[] }) {
   const section = ({ orders: "trades", health: "engine" } as Record<string, string>)[segments[0]] ?? segments[0] ?? "";
   if (segments.length > 2 || !["", "strategy", "market", "trades", "portfolio", "engine"].includes(section) || segments.length > 1 && section !== "trades") notFound();
   const base = "";
-  const data = await overview();
+  const resources = section === "engine" ? ["status", "live", "ready"] as const
+    : section === "market" || section === "trades" ? ["status"] as const
+    : section === "portfolio" ? ["status", "portfolio", "annual"] as const
+    : section === "strategy" ? ["status", "portfolio", "versions"] as const
+    : ["status", "portfolio", "versions", "annual"] as const;
+  const data = await overview(resources);
   const status = data.status.data;
-  const title = { "": siteName, strategy: "Strategy", market: "Market", trades: segments[1] ? "거래 상세" : "거래 이력", portfolio: "보유 현황", engine: "엔진 상태" }[section];
+  const title = { "": "TQQQ 200d MA Strategy Dashboard", strategy: "Strategy", market: "Market", trades: segments[1] ? "거래 상세" : "거래 이력", portfolio: "보유 현황", engine: "엔진 상태" }[section];
+  const description = {
+    "": "메리츠증권 Open API와 Super365 계좌로 운용하는 TQQQ자동매매 대시보드입니다.",
+    strategy: "QQQ SMA200 기반 매매 전략과 동적 완충 폭, 분할 익절 및 SPYM 적립 현황을 확인합니다.",
+    market: "TradingView 공식 위젯으로 TQQQ·QQQ·SPYM의 시세와 거래량을 확인합니다.",
+    trades: segments[1] ? "선택한 주문의 접수·상태 변경과 실제 체결 내역을 확인합니다." : "TQQQ·SPYM의 주문 및 체결 이력을 조회하고 종목·기간·상태별로 확인합니다.",
+    portfolio: "TQQQ·SPYM의 보유 현황, 계좌 평가금액과 확인된 실현손익 및 SPYM 적립 예산을 확인합니다.",
+    engine: "엔진의 실행 모드, 읽기 API 준비 상태와 거래 모듈별 연결·오류 상태를 확인합니다.",
+  }[section];
   const stale = Boolean(status?.last_check_at && Date.now() - Date.parse(status.last_check_at) > 120000);
   let content: React.ReactNode;
   if (section === "engine") content = <HealthPanel data={data} />;
@@ -71,8 +84,11 @@ export async function DashboardView({ segments }: { segments: string[] }) {
 
   }
   return <div className="dashboard-page">
-    <header className="page-heading"><div><p className="eyebrow">{section ? section.toUpperCase() : "DASHBOARD"}</p><h1>{title}</h1><p>메리츠증권 Open API와 Super365 계좌로 운용하는 QQQ SMA200 기반 TQQQ·SPYM 자동매매 대시보드입니다.</p></div><RefreshControl /></header>
-    <div className="engine-strip"><span className={`engine-indicator${data.status.error || stale ? " is-unknown" : ""}`}><span className="status-dot" />{data.status.error ? "상태 확인 불가" : `${status?.mode.toUpperCase() ?? "—"}${stale ? " / 관측 오래됨" : ""}`}</span><span>{status?.mode === "pause" ? "관찰 중 / 주문 비활성" : status ? `주문 ${status.orders_enabled ? "활성" : "비활성"}` : "엔진 연결을 확인하세요"}</span><span className="strip-divider" /><span>전략 <b>v{status?.strategy_version ?? "—"}</b></span><span className="strip-time">마지막 데이터 갱신 {time(data.status.error ? null : data.status.fetchedAt)} KST</span><Link className="text-link" href={`${base}/engine`}>엔진 상세 ↗</Link></div>
+    <header className="page-heading"><div><p className="eyebrow">{section ? section.toUpperCase() : "DASHBOARD"}</p><h1>{title}</h1><p>{description}</p></div><RefreshControl /></header>
+    <div className="engine-strip"><StatusBadge tone={data.status.error || stale ? "neutral" : modeTone(status?.mode)}>{data.status.error ? "상태 확인 불가" : `${status?.mode.toUpperCase() ?? "—"}${stale ? " / 관측 오래됨" : ""}`}</StatusBadge>
+      <span className="strip-orders">{status && !data.status.error ? <>주문 <StatusBadge tone={stale ? "neutral" : status.orders_enabled ? "active" : "paused"}>{stale ? "확인 필요" : status.orders_enabled ? "활성" : "비활성"}</StatusBadge>{status.mode === "pause" && <span className="strip-label">관찰 중</span>}</> : "엔진 연결을 확인하세요"}</span>
+      <span className="strip-divider" /><span className="strip-version"><span className="strip-label">전략</span> <b>v{status?.strategy_version ?? "—"}</b></span>
+      <span className="strip-time"><span className="strip-label">마지막 데이터 갱신</span> <time>{time(data.status.error ? null : data.status.fetchedAt)} KST</time></span><Link className="text-link" href={`${base}/engine`}>엔진 상세 ↗</Link></div>
     <DataState result={data.status} name="엔진" />{data.status.error && <p className="notice">현재 상태를 확인할 수 없습니다. 이전 정상 상태를 표시하지 않습니다.</p>}{content}
   </div>;
 }

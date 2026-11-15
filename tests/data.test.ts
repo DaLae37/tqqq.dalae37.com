@@ -18,6 +18,23 @@ test("whitelist strips credentials, original payloads and unknown nested fields"
   assert.equal(JSON.stringify(parsed).includes("secret"), false);
   assert.equal(JSON.stringify(parsed).includes("private"), false);
 });
+test("module status retains dependency diagnostics and strips unknown module payloads", () => {
+  const fixture = mockResource("status") as Record<string, unknown>;
+  const module = { status: "error", reason: "dependency_unavailable", blocked_by: ["broker"],
+    last_check_at: "2026-11-15T08:00:00Z", last_success: "2026-11-15T07:00:00Z",
+    last_error_details: { stage: "api_authentication", code: "dependency_http_error", http_status: 503,
+      raw_response: "private", token: "secret" }, account_number: "private" };
+  const parsed = resourceSchemas.status.parse({ ...fixture, modules: { broker: module, unknown: { token: "secret" } },
+    assessment: { status: "evaluated", modules: { decision: module } } });
+  assert.equal(parsed.modules?.broker?.status, "error");
+  assert.deepEqual(parsed.modules?.broker?.blocked_by, ["broker"]);
+  assert.equal(parsed.modules?.broker?.last_error_details?.http_status, 503);
+  assert.equal(parsed.assessment?.modules?.decision?.last_success, "2026-11-15T07:00:00Z");
+  assert.doesNotMatch(JSON.stringify(parsed), /private|secret|unknown/);
+  assert.equal(resourceSchemas.status.safeParse({ ...fixture, modules: { broker: { ...module, status: "healthy" } } }).success, false);
+  const { modules, api_health_checked, api_health_checked_at, consecutive_api_failures, ...legacy } = fixture;
+  assert.equal(resourceSchemas.status.safeParse(legacy).success, true);
+});
 test("money keeps original precision, unknown values stay unknown", () => {
   assert.equal(money("9007199254740993.1234567890"), "9,007,199,254,740,993.123456789 USD");
   assert.equal(money(null, "KRW"), "제공되지 않음");

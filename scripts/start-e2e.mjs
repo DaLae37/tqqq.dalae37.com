@@ -29,7 +29,9 @@ if (process.argv.includes("--engine")) {
     const url = new URL(request.url, "https://localhost");
     const resource = /^(?:\/v1|\/health)\/([a-z-]+)$/.exec(url.pathname)?.[1];
     if (request.method !== "GET" || (!["live", "ready"].includes(resource) && request.headers.authorization !== `Bearer ${token}`) || !resources.has(resource)) { response.writeHead(403).end("{}"); return; }
-    response.end(JSON.stringify(mockResource(resource, Number(url.searchParams.get("limit") ?? 100), Number(url.searchParams.get("offset") ?? 0))));
+    const payload = mockResource(resource, Number(url.searchParams.get("limit") ?? 100), Number(url.searchParams.get("offset") ?? 0));
+    if (resource === "status") payload.last_check_at = new Date().toISOString();
+    response.end(JSON.stringify(payload));
   });
   await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
   const origin = `https://127.0.0.1:${upstream.address().port}`;

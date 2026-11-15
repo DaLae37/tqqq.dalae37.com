@@ -67,7 +67,9 @@ API가 제공하지 않는 값은 미제공으로 표시하며, 조회 실패를
 
 ## 라이선스 (License)
 
-[BSD 3-Clause](LICENSE)
+소스 코드는 [BSD 3-Clause](LICENSE)를 따름
+
+직접 작성한 사이트 소개와 전략 설명 콘텐츠는 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)을 따름
 
 TradingView 위젯과 시세는 TradingView 및 데이터 제공자의 이용 조건을 따름
 

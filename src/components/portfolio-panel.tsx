@@ -1,5 +1,6 @@
 import type { Overview, ResourceData } from "@/lib/contracts";
 import { money, time } from "@/lib/format";
+import { ProfitLoss } from "@/components/profit-loss";
 
 export function PortfolioPanel({ data, ledger }: { data: Overview; ledger: ResourceData<"tax-ledger"> | null }) {
   const portfolio = data.portfolio.data?.portfolio;
@@ -20,8 +21,8 @@ export function PortfolioPanel({ data, ledger }: { data: Overview; ledger: Resou
     </section>
     <section className="panel"><div className="panel-heading"><div><p className="eyebrow">SPYM BUDGET</p><h2>SPYM 적립 배정 잔액</h2></div></div><div className="table-scroll"><table><thead><tr><th>체결 근거</th><th>사용 가능 미국 거래일</th><th>잔액</th></tr></thead><tbody>{portfolio?.spym_lots.map((lot) => <tr key={lot.fill_id}><td className="mono">{lot.fill_id}</td><td>{lot.available_day}</td><td>{money(lot.amount)}</td></tr>)}</tbody></table></div>{!portfolio?.spym_lots.length && <p className="muted">배정 내역 없음 / 미제공</p>}</section>
     <section className="panel"><div className="panel-heading"><div><p className="eyebrow">TAX LEDGER</p><h2>연도별 검증 손익과 세무 원장</h2></div></div><p className="notice">외부 증권사 손익이 반영되지 않았습니다. 전체 과세 손익이나 확정 세금으로 해석하지 않습니다.</p>
-      <div className="table-scroll"><table><thead><tr><th>연도</th><th>메리츠 확인 손익</th><th>미확정 건수</th><th>외부 손익 반영</th></tr></thead><tbody>{data.annual.data?.items.map((item) => <tr key={item.year}><td>{item.year}</td><td>{money(item.verified_broker_pnl_krw, "KRW")}</td><td>{item.pending_count}</td><td>{item.external_pnl_complete ? "엔진 확인 완료" : "미반영"}</td></tr>)}</tbody></table></div>
-      <div className="table-scroll"><table><thead><tr><th>귀속일</th><th>종목 / 수량</th><th>원화 실현손익</th><th>검증 상태</th></tr></thead><tbody>{ledger?.items.map((item) => <tr key={item.id}><td>{item.recognized_day ?? "미확정"}</td><td>{item.symbol} / {item.quantity}주</td><td>{money(item.realized_krw, "KRW")}</td><td>{item.verification_status}</td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><table><thead><tr><th>연도</th><th>메리츠 확인 손익</th><th>미확정 건수</th><th>외부 손익 반영</th></tr></thead><tbody>{data.annual.data?.items.map((item) => <tr key={item.year}><td>{item.year}</td><td><ProfitLoss value={item.verified_broker_pnl_krw} currency="KRW" /></td><td>{item.pending_count}</td><td>{item.external_pnl_complete ? "엔진 확인 완료" : "미반영"}</td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><table><thead><tr><th>귀속일</th><th>종목 / 수량</th><th>원화 실현손익</th><th>검증 상태</th></tr></thead><tbody>{ledger?.items.map((item) => <tr key={item.id}><td>{item.recognized_day ?? "미확정"}</td><td>{item.symbol} / {item.quantity}주</td><td><ProfitLoss value={item.realized_krw} currency="KRW" /></td><td>{item.verification_status}</td></tr>)}</tbody></table></div>
     </section>
   </div>;
 }

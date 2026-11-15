@@ -53,8 +53,14 @@ const fixtures: Record<Resource, unknown> = {
     reason: "operator_pause", last_check_at: mockAt, last_evaluation_at: mockAt, strategy_version: "1.3",
     live_trading_enabled: false, execution_adapter_available: true, live_profile_configured: true,
     migration_in_progress: false, last_error: null, last_start_error: null, tax_status: "not_evaluated",
+    api_health_checked: false, api_health_checked_at: mockAt, consecutive_api_failures: 0,
+    modules: {
+      read_api: { status: "ready", reason: null, blocked_by: [], last_check_at: mockAt, last_success: mockAt, last_error_details: null },
+      decision: { status: "ready", reason: null, blocked_by: [], last_check_at: mockAt, last_success: mockAt, last_error_details: null },
+      orders: { status: "blocked", reason: "operator_pause", blocked_by: [], last_check_at: mockAt, last_success: null, last_error_details: null },
+    },
     assessment: { status: "evaluated", session: "REGULAR", close_count: 200, signals_persisted: false,
-      // Proposed read-only snapshot, exercised only in isolated tests.
+      // Engine read-only snapshot, exercised only in isolated tests.
       trend_reference: { status: "ready", reason: null, signal_symbol: "QQQ", trade_symbol: "TQQQ",
         evaluated_at: mockAt, source_day: "2026-11-12", sma_period: 200, close_count: 200, close_confirmed: true,
         close: "530.1200000000", sma_value: "510.0000000000", buy_buffer: "0.02", sell_buffer: "0.02",

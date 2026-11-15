@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { engineBaseUrl, readResource } from "../src/lib/server/engine.ts";
+import { engineBaseUrl, overview, readResource } from "../src/lib/server/engine.ts";
 import { mockResource } from "./fixtures.ts";
 
 test("disabled and removed mock adapters never fetch or produce synthetic account data", async () => {
@@ -32,6 +32,7 @@ test("upstream request is GET only, no-store, fixed path and no redirects", asyn
   const original = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     assert.equal(new URL(String(input)).pathname, "/v1/status");
+    assert.equal(new URL(String(input)).search, "");
     assert.equal(init?.method, "GET"); assert.equal(init?.cache, "no-store"); assert.equal(init?.redirect, "error");
     assert.equal((init?.headers as Record<string, string>).Authorization, `Bearer ${process.env.ENGINE_READ_API_TOKEN}`);
     return Response.json(mockResource("status"));
@@ -68,6 +69,7 @@ test("health probes remain available without a read-token Secret", async () => {
   delete process.env.ENGINE_READ_API_TOKEN_SECRET_ARN;
   globalThis.fetch = async (input, init) => {
     assert.ok(["/health/live", "/health/ready"].includes(new URL(String(input)).pathname));
+    assert.equal(new URL(String(input)).search, "");
     assert.equal((init?.headers as Record<string, string>).Authorization, undefined);
     return Response.json({ ok: true });
   };
@@ -76,6 +78,62 @@ test("health probes remain available without a read-token Secret", async () => {
     assert.equal((await readResource("ready")).data?.ok, true);
     assert.equal((await readResource("status")).error, "not_configured");
   } finally { globalThis.fetch = original; Object.assign(process.env, { NODE_ENV: previousMode }); }
+});
+
+test("Engine overview reads memory status and health without querying trading records", async () => {
+  const original = globalThis.fetch, calls: string[] = [];
+  const status = { ...mockResource("status") as object, mode: "stop", orders_enabled: false,
+    health: { db: false, api: false, schema: false } };
+  globalThis.fetch = async (input) => {
+    const path = new URL(String(input)).pathname;
+    calls.push(path);
+    if (path === "/v1/status") return Response.json(status);
+    if (path === "/health/live") return Response.json({ ok: true });
+    if (path === "/health/ready") return Response.json({ ok: false }, { status: 503 });
+    throw new Error("unexpected DB dependency");
+  };
+  try {
+    const result = await overview(["status", "live", "ready"]);
+    assert.deepEqual(calls.sort(), ["/health/live", "/health/ready", "/v1/status"]);
+    assert.equal(result.status.data?.mode, "stop");
+    assert.equal(result.status.error, null);
+    assert.equal(result.live.data?.ok, true);
+    assert.equal(result.ready.data?.ok, false);
+    assert.equal(result.portfolio.data, null);
+  } finally { globalThis.fetch = original; }
+});
+
+test("broker and read DB failures stay local to their resources", async () => {
+  const original = globalThis.fetch;
+  let dbUnavailable = false;
+  const status = { ...mockResource("status") as object, mode: "start", orders_enabled: false,
+    health: { db: true, api: false, schema: true }, reason: "broker_unavailable" };
+  globalThis.fetch = async (input) => {
+    const path = new URL(String(input)).pathname;
+    if (path === "/v1/status") return Response.json(status);
+    if (path === "/health/live") return Response.json({ ok: true });
+    if (path === "/health/ready") return Response.json({ ok: !dbUnavailable }, { status: dbUnavailable ? 503 : 200 });
+    if (dbUnavailable) return Response.json({ error: "dependency_unavailable" }, { status: 503 });
+    return Response.json(mockResource(path.slice(4) as "portfolio" | "strategy-versions" | "annual-pnl"));
+  };
+  try {
+    const brokerDown = await overview();
+    assert.equal(brokerDown.status.data?.health.api, false);
+    assert.equal(brokerDown.status.data?.orders_enabled, false);
+    assert.equal(brokerDown.portfolio.error, null);
+    assert.ok(brokerDown.portfolio.data);
+    assert.equal(brokerDown.ready.data?.ok, true);
+    dbUnavailable = true;
+    const dbDown = await overview();
+    assert.equal(dbDown.status.error, null);
+    assert.equal(dbDown.status.data?.mode, "start");
+    assert.equal(dbDown.live.data?.ok, true);
+    assert.equal(dbDown.ready.data?.ok, false);
+    assert.equal(dbDown.portfolio.error, "unavailable");
+    assert.equal(dbDown.portfolio.data, null);
+    assert.equal(dbDown.versions.error, "unavailable");
+    assert.equal(dbDown.annual.error, "unavailable");
+  } finally { globalThis.fetch = original; }
 });
 
 test("network diagnostics distinguish causes and never log exception details", async () => {

@@ -25,13 +25,59 @@ test("public summary and portfolio retain actual upstream values without demo la
   await expect(page.locator(".strategy-reference")).toContainText("QQQ 종가 < 499.8 USD");
   await expect(page.locator(".strategy-reference")).toContainText("510 USD");
   await expect(page.locator(".summary-card")).toHaveCount(3);
+  await expect(page.locator(".summary-card").nth(1).locator(".pnl-value")).toHaveAttribute("data-direction", "missing");
+  await expect(page.locator(".summary-card").nth(2).locator(".pnl-value")).toHaveAttribute("data-direction", "gain");
+  await expect(page.locator(".summary-card").nth(2).locator(".pnl-value")).toHaveText("+324,500.125 KRW");
   await expect(page.locator("tbody tr")).toHaveCount(5);
   await expect(page.locator(".summary-grid")).toContainText("8,023.76");
   await expect(page.locator(".demo-banner")).toHaveCount(0);
   await page.screenshot({ path: "test-results/strategy-reference-engine.png", fullPage: true });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await expect(page.locator(".reference-buy strong")).toHaveText("520.2 USD");
+      await expect(page.locator(".reference-sell strong")).toHaveText("499.8 USD");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.locator(".strategy-reference").screenshot({ path: `test-results/reference-${width}-${colorScheme}.png` });
+    }
+  }
   await page.goto("/portfolio");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("보유 현황");
   await expect(page.locator(".data-error")).toHaveCount(0);
+  await page.goto("/strategy");
+  const evidence = page.locator(".strategy-guide .panel").last();
+  await expect(evidence).toContainText("530.12 USD");
+  await expect(evidence).toContainText("520.2 USD");
+  await expect(evidence).toContainText("499.8 USD");
+  await page.screenshot({ path: "test-results/strategy-engine-mobile-dark.png", fullPage: true });
+});
+
+test("Engine distinguishes read API readiness from trading module readiness", async ({ page }) => {
+  await page.goto("/engine");
+  await expect(page.locator(".engine-strip > .status-badge")).toHaveText("PAUSE");
+  await expect(page.locator(".engine-strip > .status-badge")).toHaveAttribute("data-tone", "paused");
+  await expect(page.getByRole("heading", { name: "모듈별 현재 상태" })).toBeVisible();
+  const health = page.locator(".health-list > div").filter({ has: page.locator("dt", { hasText: "읽기 API 준비" }) });
+  await expect(health).toContainText("정상");
+  const readApi = page.getByRole("row").filter({ has: page.getByRole("cell", { name: "읽기 API", exact: true }) });
+  await expect(readApi).toContainText("정상");
+  const orders = page.getByRole("row").filter({ has: page.getByRole("cell", { name: "신규 주문", exact: true }) });
+  await expect(orders).toContainText("차단");
+  await expect(page.getByText("pause는 정상 관찰 모드", { exact: true })).toBeVisible();
+  await expect(page.locator(".data-error")).toHaveCount(0);
+  const normal = health.locator(".status-badge"), inactive = page.locator(".strip-orders .status-badge");
+  await expect(normal).toHaveAttribute("data-tone", "active");
+  await expect(inactive).toHaveAttribute("data-tone", "paused");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      expect(await normal.evaluate((node) => getComputedStyle(node).color)).not.toBe(await inactive.evaluate((node) => getComputedStyle(node).color));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: `test-results/engine-status-${width}-${colorScheme}.png`, fullPage: true });
+    }
+  }
 });
 
 test("public trade filters, pagination and individual fills still work", async ({ page }) => {

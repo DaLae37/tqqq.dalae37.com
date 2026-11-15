@@ -85,8 +85,10 @@ export async function readResource<R extends Resource>(resource: R, limit = 100,
     }
   }
   url.pathname = health ? `/health/${resource}` : `/v1/${resource}`;
-  url.searchParams.set("limit", String(limit));
-  url.searchParams.set("offset", String(offset));
+  if (!["status", "portfolio", "annual-pnl", "live", "ready"].includes(resource)) {
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(offset));
+  }
   let response: Response;
   try {
     response = await fetch(url, {
@@ -120,10 +122,16 @@ export async function readResource<R extends Resource>(resource: R, limit = 100,
   return { ...result, data: parsed.data as ResourceData<R>, fetchedAt: new Date().toISOString() };
 }
 
-export async function overview(): Promise<Overview> {
+export async function overview(resources: readonly (keyof Overview)[] = ["status", "portfolio", "versions", "annual", "live", "ready"]): Promise<Overview> {
+  // Unused resources are not fetched. Readiness never gates memory status or DB reads.
+  const skipped: DataResult<never> = { data: null, source: process.env.DATA_ADAPTER === "engine" ? "engine" : "disabled",
+    fetchedAt: new Date().toISOString(), error: null };
+  function load<R extends Resource>(key: keyof Overview, resource: R): Promise<DataResult<ResourceData<R>>> {
+    return resources.includes(key) ? readResource(resource) : Promise.resolve(skipped);
+  }
   const [status, portfolio, versionRecords, annual, live, ready] = await Promise.all([
-    readResource("status"), readResource("portfolio"), records("strategy-versions"),
-    readResource("annual-pnl"), readResource("live"), readResource("ready"),
+    load("status", "status"), load("portfolio", "portfolio"), resources.includes("versions") ? records("strategy-versions") : skipped,
+    load("annual", "annual-pnl"), load("live", "live"), load("ready", "ready"),
   ]);
   const versions = { ...versionRecords, data: versionRecords.data ? { items: versionRecords.data.items, limit: 200, offset: 0 } : null };
   return { status, portfolio, versions, annual, live, ready };

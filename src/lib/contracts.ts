@@ -6,14 +6,26 @@ const maybeDecimal = decimal.nullish();
 const maybeText = text.nullish();
 const integer = z.number().int().nonnegative();
 const timestamp = z.string().max(80).refine((value) => /(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)), "timezone required");
-const diagnostic = z.object({ stage: maybeText, code: maybeText, response_code: maybeText }).nullish();
+const diagnostic = z.object({ stage: maybeText, code: maybeText, response_code: maybeText,
+  http_status: z.number().int().min(100).max(599).nullish(), aws_error_code: maybeText }).nullish();
+const moduleState = z.object({
+  status: z.enum(["idle", "ready", "blocked", "error"]), reason: maybeText,
+  blocked_by: z.array(text).max(20), last_check_at: timestamp.nullish(), last_success: timestamp.nullish(),
+  last_error_details: diagnostic,
+}).optional();
+const modules = z.object({
+  runtime: moduleState, migration: moduleState, db: moduleState, schema: moduleState,
+  broker: moduleState, execution_lease: moduleState, decision: moduleState, order_management: moduleState,
+  orders: moduleState, history: moduleState, tax: moduleState, read_api: moduleState,
+}).optional();
+const dependencyDiagnostics = z.object({ db: diagnostic, api: diagnostic, schema: diagnostic }).nullish();
 const signal = z.object({
   key: maybeText, symbol: text, side: text, reason: text, signal_price: decimal,
   sma_value: maybeDecimal, signal_symbol: maybeText, source_day: text,
   strategy_version: text, effective_buy_buffer: maybeDecimal, effective_sell_buffer: maybeDecimal,
 });
 
-// Proposed read-only extension. Existing engines may omit this snapshot.
+// Older engines and evaluations before initialization may omit this snapshot.
 const trendReferenceSchema = z.object({
   status: z.enum(["ready", "unavailable"]), reason: maybeText,
   signal_symbol: z.literal("QQQ"), trade_symbol: z.literal("TQQQ"),
@@ -28,15 +40,18 @@ export const statusSchema = z.object({
   mode: z.enum(["pause", "start", "test", "stop"]), orders_enabled: z.boolean(),
   dry_run: z.boolean().optional(), health: z.object({ db: z.boolean(), api: z.boolean(), schema: z.boolean().optional() }),
   reason: maybeText, last_check_at: timestamp.nullish(), last_evaluation_at: timestamp.nullish(),
+  api_health_checked: z.boolean().optional(), api_health_checked_at: timestamp.nullish(),
+  consecutive_api_failures: integer.max(3).optional(), modules,
   strategy_version: text, live_trading_enabled: z.boolean(), execution_adapter_available: z.boolean().optional(),
   live_profile_configured: z.boolean().optional(), migration_in_progress: z.boolean().optional(),
   extended_hours_verified: z.boolean().optional(), last_error: maybeText, last_start_error: maybeText,
-  last_error_details: diagnostic, last_start_error_details: diagnostic, tax_status: maybeText,
+  last_error_details: diagnostic, last_start_error_details: diagnostic, last_worker_error_details: diagnostic,
+  health_error_details: dependencyDiagnostics, last_health_error_details: dependencyDiagnostics, tax_status: maybeText,
   assessment: z.object({
     status: maybeText, session: maybeText, requirements: z.array(text).optional(),
     trend: signal.nullish(), take_profit: signal.nullish(), close_count: integer.optional(),
     signals_persisted: z.boolean().optional(),
-    trend_reference: trendReferenceSchema.nullish(),
+    trend_reference: trendReferenceSchema.nullish(), modules,
     trend_buffer: z.object({ buy: decimal, sell: decimal, steps: integer, expires_at: timestamp.nullish() }).optional(),
     funding: z.object({ mode: maybeText, cash: maybeDecimal, settled_cash: maybeDecimal, orderable: maybeDecimal,
       trading_cash: maybeDecimal, protected_cash: maybeDecimal, funding_debit: maybeDecimal }).optional(),
