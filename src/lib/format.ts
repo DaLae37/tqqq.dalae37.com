@@ -26,5 +26,6 @@ export const stateLabels: Record<string, string> = {
   REGULAR: "정규장", PRE_MARKET: "프리마켓", AFTER_MARKET: "애프터마켓", CLOSED: "휴장 / 장 종료",
   SMA_BUY: "SMA 매수", SMA_SELL: "SMA 전량 매도", TAKE_PROFIT: "분할 익절", SPYM_BUY: "SPYM 적립",
   SPYM_ACCUMULATE: "SPYM 적립", TAX_SELL: "절세 매도", TAX_REBUY: "절세 재매수",
+  EXTERNAL_BUY: "외부 매수", EXTERNAL_SELL: "외부 매도",
 };
 export function label(value: string | null | undefined) { return value ? stateLabels[value] ?? value : "확인되지 않음"; }

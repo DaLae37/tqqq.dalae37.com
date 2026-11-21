@@ -208,7 +208,8 @@ td strong { font-weight: 600; }.numeric { text-align: right; }.mono { font-varia
 .tradingview-widget-copyright a { color: var(--accent); }
 
 .brand-description { display: block; margin-top: .25rem; color: var(--muted); font-size: .6875rem; font-weight: 400; letter-spacing: 0; }
-.cc-license { display: inline-flex; align-items: center; gap: .375rem; white-space: nowrap; vertical-align: middle; }
+.footer-credit { display: inline-flex; align-items: center; gap: .375rem; vertical-align: middle; }
+.cc-license { display: inline-flex; align-items: center; gap: .375rem; white-space: nowrap; }
 .cc-license:hover { color: var(--accent); }
 .cc-license-icons { display: inline-flex; align-items: center; gap: .125rem; }
 .cc-license-icons img { display: block; width: .875rem; height: .875rem; }

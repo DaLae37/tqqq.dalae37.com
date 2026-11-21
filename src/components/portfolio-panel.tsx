@@ -4,7 +4,8 @@ import { ProfitLoss } from "@/components/profit-loss";
 
 export function PortfolioPanel({ data, ledger }: { data: Overview; ledger: ResourceData<"tax-ledger"> | null }) {
   const portfolio = data.portfolio.data?.portfolio;
-  const snapshot = Object.values(data.portfolio.data?.daily_snapshots ?? {}).filter((item) => item.at).sort((a, b) => Date.parse(b.at!) - Date.parse(a.at!))[0];
+  const latestSnapshot = Object.values(data.portfolio.data?.daily_snapshots ?? {}).filter((item) => item.at).sort((a, b) => Date.parse(b.at!) - Date.parse(a.at!))[0];
+  const snapshot = latestSnapshot?.currency === "USD" ? latestSnapshot : undefined;
   const funding = data.status.data?.assessment?.funding;
   return <div className="page-sections">
     <section className="panel"><div className="panel-heading"><div><p className="eyebrow">POSITIONS</p><h2>보유 종목</h2></div></div><div className="table-scroll"><table><thead><tr><th>종목</th><th>장부 수량</th><th>매입 기준</th><th>평가금액 / 평가손익</th></tr></thead><tbody>
