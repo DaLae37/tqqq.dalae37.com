@@ -96,6 +96,23 @@ test("public trade filters, pagination and individual fills still work", async (
   await expect(page.getByText("FILL", { exact: true })).toBeVisible();
 });
 
+test("external order detail resolves encoded IDs from links and direct navigation", async ({ page }) => {
+  const id = "external:00000000-0000-5000-8000-000000000001:order";
+  const path = `/trades/${encodeURIComponent(id)}`;
+  await page.goto("/trades");
+  const link = page.locator("tbody tr").first().getByRole("link", { name: "상세 ↗", exact: true });
+  await expect(link).toHaveAttribute("href", path);
+  await link.click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("거래 상세");
+  await expect(page.getByText(id, { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "확인된 개별 체결" })).toBeVisible();
+  await expect(page.getByText("FILL", { exact: true })).toBeVisible();
+  for (const url of [path, `/trades/${id}`, `/dashboard${path}`]) {
+    await page.goto(url);
+    await expect(page.getByText(id, { exact: true })).toBeVisible();
+  }
+});
+
 test("empty trade filters remain explicit", async ({ page }) => {
   await page.goto("/trades"); await page.getByLabel("시작일", { exact: true }).fill("2099-01-01");
   await expect(page.getByText("조건에 맞는 거래가 없습니다")).toBeVisible();

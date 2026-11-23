@@ -95,6 +95,7 @@ export const eventSchema = z.object({
   previous_status: maybeText, new_status: maybeText, broker_order_id: maybeText,
   broker_execution_id: maybeText, fill_quantity: integer.nullish(), fill_price: maybeDecimal,
   fee_amount: maybeDecimal, fee_currency: maybeText, cumulative_filled_quantity: integer.nullish(),
+  fee_source: z.enum(["BROKER", "CONFIGURED_RATE"]).nullish(),
   broker_response_code: maybeText, event_key: text, occurred_at: timestamp, created_at: timestamp,
 });
 export const versionSchema = z.object({

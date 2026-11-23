@@ -1,5 +1,15 @@
 import type { OrderEvent, Trade } from "./contracts.ts";
 
+export function findTrade(items: Trade[], id: string): Trade | undefined {
+  const exact = items.find((item) => item.id === id);
+  if (exact) return exact;
+  // Catch-all navigation may retain percent-encoded separators in the route ID.
+  try {
+    const decoded = decodeURIComponent(id);
+    return items.find((item) => item.id === decoded);
+  } catch { return undefined; }
+}
+
 export function uniqueFills(events: OrderEvent[]) {
   const seen = new Set<string>();
   return events.filter((event) => {

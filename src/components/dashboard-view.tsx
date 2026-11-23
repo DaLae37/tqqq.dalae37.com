@@ -13,7 +13,7 @@ import { HealthPanel } from "@/components/health-panel";
 import { RefreshControl } from "@/components/refresh-control";
 import { DataState, EmptyState } from "@/components/data-state";
 import { label, money, time } from "@/lib/format";
-import { uniqueFills } from "@/lib/trades";
+import { findTrade, uniqueFills } from "@/lib/trades";
 
 export async function DashboardView({ segments }: { segments: string[] }) {
   const section = ({ orders: "trades", health: "engine" } as Record<string, string>)[segments[0]] ?? segments[0] ?? "";
@@ -51,7 +51,7 @@ export async function DashboardView({ segments }: { segments: string[] }) {
       const [eventsResult, signalsResult] = await Promise.all([records("order-events"), records("signals")]);
       const events = eventsResult.data?.items ?? [];
       const signals = signalsResult.data?.items ?? [];
-      const order = orders.find((item) => item.id === segments[1]);
+      const order = findTrade(orders, segments[1]);
       if (!order) content = <EmptyState title={ordersResult.error ? "주문 조회에 실패했습니다" : "조회 범위에서 주문을 찾을 수 없습니다"}>이력은 최신 2,000개 주문 범위에서 확인합니다. <Link className="text-link" href={`${base}/trades`}>이력으로 돌아가기</Link></EmptyState>;
       else {
         const related = events.filter((event) => event.trade_id === order.id);
@@ -70,7 +70,7 @@ export async function DashboardView({ segments }: { segments: string[] }) {
             {order.status === "UNKNOWN" && <p className="notice">미확정 주문입니다. 체결 완료 또는 주문 실패로 간주하지 않습니다.</p>}
             {order.status === "CANCEL_PENDING" && <p className="notice">취소 요청 상태입니다. 취소 완료 전에는 기존 주문이 살아 있을 수 있습니다.</p>}
           </section>
-          <section className="panel"><div className="panel-heading"><div><p className="eyebrow">EXECUTIONS</p><h2>확인된 개별 체결</h2></div></div><div className="table-scroll"><table><thead><tr><th>체결 시각 KST</th><th>체결 수량</th><th>체결 단가</th><th>비용</th><th>체결 ID</th></tr></thead><tbody>{fills.map((event) => <tr key={event.event_id}><td>{time(event.occurred_at)}</td><td>{event.fill_quantity}주</td><td>{money(event.fill_price)}</td><td>{event.fee_currency ? money(event.fee_amount, event.fee_currency) : "미제공"}</td><td className="mono">{event.broker_execution_id}</td></tr>)}</tbody></table></div>{!fills.length && <EmptyState title="확인된 체결 없음" />}</section>
+          <section className="panel"><div className="panel-heading"><div><p className="eyebrow">EXECUTIONS</p><h2>확인된 개별 체결</h2></div></div><div className="table-scroll"><table><thead><tr><th>체결 시각 KST</th><th>체결 수량</th><th>체결 단가</th><th>비용</th><th>체결 ID</th></tr></thead><tbody>{fills.map((event) => <tr key={event.event_id}><td>{time(event.occurred_at)}</td><td>{event.fill_quantity}주</td><td>{money(event.fill_price)}</td><td>{event.fee_currency ? <>{money(event.fee_amount, event.fee_currency)}{event.fee_source === "CONFIGURED_RATE" && <small> (설정 기준 계산)</small>}</> : "미제공"}</td><td className="mono">{event.broker_execution_id}</td></tr>)}</tbody></table></div>{!fills.length && <EmptyState title="확인된 체결 없음" />}</section>
           <section className="panel"><div className="panel-heading"><div><p className="eyebrow">EVENT TIMELINE</p><h2>주문 이벤트</h2></div></div>{eventsResult.truncated && <p className="notice">최신 2,000개 이벤트 범위입니다. 이 주문의 이전 이벤트가 포함되지 않을 수 있습니다.</p>}
             <ol className="event-timeline">{related.sort((a, b) => a.sequence - b.sequence).map((event) => <li key={event.event_id}><span className="event-sequence">{event.sequence}</span><div><strong>{event.event_type}</strong><p>{label(event.previous_status)} → {label(event.new_status)}</p><small>{time(event.occurred_at)} KST</small></div></li>)}</ol><DataState result={eventsResult} name="주문 이벤트" />
           </section>

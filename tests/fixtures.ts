@@ -12,7 +12,7 @@ const config = {
 };
 const statuses = ["FILLED", "PARTIALLY_FILLED", "CANCEL_PENDING", "CANCELLED", "UNKNOWN", "REJECTED", "ORDER_PENDING"];
 const orders = Array.from({ length: 24 }, (_, index) => ({
-  id: `demo-order-${index + 1}`, parent_id: `demo-signal-${index + 1}`, symbol: index % 3 === 2 ? "SPYM" : "TQQQ",
+  id: index === 0 ? "external:00000000-0000-5000-8000-000000000001:order" : `demo-order-${index + 1}`, parent_id: `demo-signal-${index + 1}`, symbol: index % 3 === 2 ? "SPYM" : "TQQQ",
   reason: index % 3 === 2 ? index % 2 ? "TAX_SELL" : "SPYM_BUY" : index % 2 === 0 ? "SMA_BUY" : "TAKE_PROFIT",
   side: index % 2 === 0 ? "BUY" : "SELL", quantity: 10, filled_quantity: index % 7 === 0 ? 10 : index % 7 === 1 ? 4 : 0,
   signal_price: index % 2 === 0 && index % 3 !== 2 ? "530.1200000000" : "62.4100000000", actual_price: index % 7 < 2 ? "62.4100000000" : null,

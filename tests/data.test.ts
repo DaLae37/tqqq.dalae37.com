@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { resourceSchemas, type OrderEvent } from "../src/lib/contracts.ts";
 import { mockResource } from "./fixtures.ts";
 import { money, threshold, time } from "../src/lib/format.ts";
-import { uniqueFills, filterTrades } from "../src/lib/trades.ts";
+import { findTrade, uniqueFills, filterTrades } from "../src/lib/trades.ts";
 
 test("all mock resources satisfy the engine response contracts", () => {
   for (const resource of Object.keys(resourceSchemas) as Array<keyof typeof resourceSchemas>) {
@@ -50,6 +50,14 @@ test("fills deduplicate by order and execution, never cumulative quantity", () =
   assert.equal(unique.length, 2);
   assert.equal(unique[0].fill_quantity, fill.fill_quantity);
 });
+test("calculated fill fees retain their source without exposing raw payloads", () => {
+  const fixture = mockResource("fills") as { items: object[]; limit: number; offset: number };
+  const parsed = resourceSchemas.fills.parse({ ...fixture, items: [{ ...fixture.items[0],
+    fee_source: "CONFIGURED_RATE", event_payload: { token: "secret" } }] });
+  assert.equal(parsed.items[0].fee_source, "CONFIGURED_RATE");
+  assert.doesNotMatch(JSON.stringify(parsed), /secret|event_payload/);
+  assert.equal(resourceSchemas.fills.safeParse({ ...fixture, items: [{ ...fixture.items[0], fee_source: "unknown" }] }).success, false);
+});
 test("filters combine and order by actual timestamp with an explicit date zone", () => {
   const items = resourceSchemas.orders.parse(mockResource("orders")).items;
   const filter = { symbol: "TQQQ", side: "SELL", status: "PARTIALLY_FILLED", from: "", to: "", direction: "asc" as const, zone: "America/New_York" };
@@ -68,4 +76,19 @@ test("non decimal money and naive timestamps are rejected", () => {
   const orders = mockResource("orders") as { items: object[]; limit: number; offset: number };
   assert.equal(resourceSchemas.orders.safeParse({ ...orders, items: [{ ...orders.items[0], actual_price: 62.4 }] }).success, false);
   assert.equal(resourceSchemas.orders.safeParse({ ...orders, items: [{ ...orders.items[0], created_at: "2026-11-12 20:00:00" }] }).success, false);
+});
+
+test("order lookup accepts encoded external IDs once and preserves exact ID matches", () => {
+  const items = resourceSchemas.orders.parse(mockResource("orders")).items;
+  const order = items[0];
+  const encoded = encodeURIComponent(order.id);
+  assert.equal(findTrade(items, order.id), order);
+  assert.equal(findTrade(items, encoded), order);
+  assert.equal(findTrade(items, encoded.replaceAll("%3A", "%3a")), order);
+  assert.equal(findTrade(items, "demo-order-2"), items[1]);
+  assert.equal(findTrade(items, encodeURIComponent(encoded)), undefined);
+  assert.equal(findTrade(items, "external:%invalid:order"), undefined);
+  assert.equal(findTrade(items, "unknown-order"), undefined);
+  const literal = { ...order, id: encoded };
+  assert.equal(findTrade([order, literal], encoded), literal);
 });
